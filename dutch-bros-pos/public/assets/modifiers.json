@@ -1,0 +1,456 @@
+{
+  "modifier_chains": {
+    "default_coffee": {
+      "id": "default_coffee",
+      "name": "Coffee Drinks",
+      "description": "Standard coffee drink modifiers",
+      "groups": [
+        {
+          "id": "size",
+          "name": "Size",
+          "required": true,
+          "default": "medium",
+          "options": [
+            { "id": "small", "name": "Small", "price_adjustment": -0.50 },
+            { "id": "medium", "name": "Medium", "price_adjustment": 0 },
+            { "id": "large", "name": "Large", "price_adjustment": 1.00 }
+          ]
+        },
+        {
+          "id": "temperature",
+          "name": "Temperature",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "hot", "name": "Hot", "price_adjustment": 0 },
+            { "id": "iced", "name": "Iced", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "milk",
+          "name": "Cream or Milk",
+          "required": false,
+          "options": [
+            { "id": "chocolate", "name": "Chocolate Milk", "price_adjustment": 0 },
+            { "id": "breve", "name": "Breve (Half & Half)", "price_adjustment": 0 },
+            { "id": "protein", "name": "Protein Milk", "price_adjustment": 0 },
+            { "id": "2percent", "name": "2% Milk", "price_adjustment": 0 },
+            { "id": "nonfat", "name": "Nonfat Milk", "price_adjustment": 0 },
+            { "id": "oat", "name": "Oat Milk", "price_adjustment": 0.75, "dairy_free": true },
+            { "id": "almond", "name": "Almond Milk", "price_adjustment": 0.75, "dairy_free": true },
+            { "id": "coconut", "name": "Coconut Milk", "price_adjustment": 0.75, "dairy_free": true }
+          ]
+        },
+        {
+          "id": "ice",
+          "name": "Ice Level",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "none", "name": "No Ice", "price_adjustment": 0 },
+            { "id": "light", "name": "Light Ice", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular Ice", "price_adjustment": 0 },
+            { "id": "extra", "name": "Extra Ice", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "sweetness",
+          "name": "Sweetness",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "half_sweet", "name": "½ Sweet", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular Sweetness", "price_adjustment": 0 },
+            { "id": "extra_sweet", "name": "Extra Sweet", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "liquid_sweetener",
+          "name": "Add Liquid Sweetener",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "vanilla", "name": "Vanilla", "price_adjustment": 0.50 },
+            { "id": "caramel", "name": "Caramel", "price_adjustment": 0.50 },
+            { "id": "hazelnut", "name": "Hazelnut", "price_adjustment": 0.50 },
+            { "id": "white_chocolate", "name": "White Chocolate", "price_adjustment": 0.50 }
+          ]
+        },
+        {
+          "id": "sweetener_packets",
+          "name": "Add Sweetener Packets",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "sugar", "name": "Sugar", "price_adjustment": 0 },
+            { "id": "splenda", "name": "Splenda", "price_adjustment": 0 },
+            { "id": "stevia", "name": "Stevia", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "espresso",
+          "name": "Espresso",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "extra_shot", "name": "Extra Shot", "price_adjustment": 0.75 },
+            { "id": "decaf", "name": "Make it Decaf", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "toppings",
+          "name": "Toppings",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "soft_top", "name": "Soft Top®", "price_adjustment": 0.50 },
+            { "id": "whipped_cream", "name": "Whipped Cream", "price_adjustment": 0.50 }
+          ]
+        },
+        {
+          "id": "drizzles",
+          "name": "Add Drizzles",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "caramel_drizzle", "name": "Caramel Drizzle", "price_adjustment": 0.25 },
+            { "id": "chocolate_drizzle", "name": "Chocolate Drizzle", "price_adjustment": 0.25 },
+            { "id": "white_chocolate_drizzle", "name": "White Chocolate Drizzle", "price_adjustment": 0.25 }
+          ]
+        },
+        {
+          "id": "sprinks",
+          "name": "Add Sprinks",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "chocolate_sprinks", "name": "Chocolate Sprinks", "price_adjustment": 0.25 },
+            { "id": "rainbow_sprinks", "name": "Rainbow Sprinks", "price_adjustment": 0.25 }
+          ]
+        }
+      ]
+    },
+    "hot_coffee": {
+      "id": "hot_coffee",
+      "name": "Hot Coffee Drinks",
+      "description": "Hot coffee drink modifiers (no ice)",
+      "groups": [
+        {
+          "id": "size",
+          "name": "Size",
+          "required": true,
+          "default": "medium",
+          "options": [
+            { "id": "small", "name": "Small", "price_adjustment": -0.50 },
+            { "id": "medium", "name": "Medium", "price_adjustment": 0 },
+            { "id": "large", "name": "Large", "price_adjustment": 1.00 }
+          ]
+        },
+        {
+          "id": "milk",
+          "name": "Cream or Milk",
+          "required": false,
+          "options": [
+            { "id": "chocolate", "name": "Chocolate Milk", "price_adjustment": 0 },
+            { "id": "breve", "name": "Breve (Half & Half)", "price_adjustment": 0 },
+            { "id": "protein", "name": "Protein Milk", "price_adjustment": 0 },
+            { "id": "2percent", "name": "2% Milk", "price_adjustment": 0 },
+            { "id": "nonfat", "name": "Nonfat Milk", "price_adjustment": 0 },
+            { "id": "oat", "name": "Oat Milk", "price_adjustment": 0.75, "dairy_free": true },
+            { "id": "almond", "name": "Almond Milk", "price_adjustment": 0.75, "dairy_free": true },
+            { "id": "coconut", "name": "Coconut Milk", "price_adjustment": 0.75, "dairy_free": true }
+          ]
+        },
+        {
+          "id": "sweetness",
+          "name": "Sweetness",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "half_sweet", "name": "½ Sweet", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular Sweetness", "price_adjustment": 0 },
+            { "id": "extra_sweet", "name": "Extra Sweet", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "liquid_sweetener",
+          "name": "Add Liquid Sweetener",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "vanilla", "name": "Vanilla", "price_adjustment": 0.50 },
+            { "id": "caramel", "name": "Caramel", "price_adjustment": 0.50 },
+            { "id": "hazelnut", "name": "Hazelnut", "price_adjustment": 0.50 },
+            { "id": "white_chocolate", "name": "White Chocolate", "price_adjustment": 0.50 }
+          ]
+        },
+        {
+          "id": "sweetener_packets",
+          "name": "Add Sweetener Packets",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "sugar", "name": "Sugar", "price_adjustment": 0 },
+            { "id": "splenda", "name": "Splenda", "price_adjustment": 0 },
+            { "id": "stevia", "name": "Stevia", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "espresso",
+          "name": "Espresso",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "extra_shot", "name": "Extra Shot", "price_adjustment": 0.75 },
+            { "id": "decaf", "name": "Make it Decaf", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "toppings",
+          "name": "Toppings",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "soft_top", "name": "Soft Top®", "price_adjustment": 0.50 },
+            { "id": "whipped_cream", "name": "Whipped Cream", "price_adjustment": 0.50 }
+          ]
+        },
+        {
+          "id": "drizzles",
+          "name": "Add Drizzles",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "caramel_drizzle", "name": "Caramel Drizzle", "price_adjustment": 0.25 },
+            { "id": "chocolate_drizzle", "name": "Chocolate Drizzle", "price_adjustment": 0.25 },
+            { "id": "white_chocolate_drizzle", "name": "White Chocolate Drizzle", "price_adjustment": 0.25 }
+          ]
+        },
+        {
+          "id": "sprinks",
+          "name": "Add Sprinks",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "chocolate_sprinks", "name": "Chocolate Sprinks", "price_adjustment": 0.25 },
+            { "id": "rainbow_sprinks", "name": "Rainbow Sprinks", "price_adjustment": 0.25 }
+          ]
+        }
+      ]
+    },
+    "rebel": {
+      "id": "rebel",
+      "name": "Rebel Energy Drinks",
+      "description": "Blue Rebel energy drink modifiers",
+      "groups": [
+        {
+          "id": "size",
+          "name": "Size",
+          "required": true,
+          "default": "medium",
+          "options": [
+            { "id": "small", "name": "Small", "price_adjustment": -0.50 },
+            { "id": "medium", "name": "Medium", "price_adjustment": 0 },
+            { "id": "large", "name": "Large", "price_adjustment": 1.00 }
+          ]
+        },
+        {
+          "id": "ice",
+          "name": "Ice Level",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "none", "name": "No Ice", "price_adjustment": 0 },
+            { "id": "light", "name": "Light Ice", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular Ice", "price_adjustment": 0 },
+            { "id": "extra", "name": "Extra Ice", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "flavor_shots",
+          "name": "Flavor Shots",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "vanilla", "name": "Vanilla", "price_adjustment": 0.50 },
+            { "id": "caramel", "name": "Caramel", "price_adjustment": 0.50 },
+            { "id": "coconut", "name": "Coconut", "price_adjustment": 0.50 }
+          ]
+        },
+        {
+          "id": "toppings",
+          "name": "Toppings",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "soft_top", "name": "Soft Top®", "price_adjustment": 0.50 }
+          ]
+        }
+      ]
+    },
+    "freeze": {
+      "id": "freeze",
+      "name": "Blended Freezes",
+      "description": "Blended freeze modifiers",
+      "groups": [
+        {
+          "id": "size",
+          "name": "Size",
+          "required": true,
+          "default": "medium",
+          "options": [
+            { "id": "small", "name": "Small", "price_adjustment": -0.50 },
+            { "id": "medium", "name": "Medium", "price_adjustment": 0 },
+            { "id": "large", "name": "Large", "price_adjustment": 1.00 }
+          ]
+        },
+        {
+          "id": "blend",
+          "name": "Blend Options",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "double_blended", "name": "Double Blended", "price_adjustment": 0 },
+            { "id": "extra_thick", "name": "Extra Thick", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "toppings",
+          "name": "Toppings",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "soft_top", "name": "Soft Top®", "price_adjustment": 0.50 },
+            { "id": "whipped_cream", "name": "Whipped Cream", "price_adjustment": 0.50 },
+            { "id": "caramel_drizzle", "name": "Caramel Drizzle", "price_adjustment": 0.25 },
+            { "id": "chocolate_drizzle", "name": "Chocolate Drizzle", "price_adjustment": 0.25 }
+          ]
+        }
+      ]
+    },
+    "lemonade": {
+      "id": "lemonade",
+      "name": "Lemonades",
+      "description": "Lemonade drink modifiers",
+      "groups": [
+        {
+          "id": "size",
+          "name": "Size",
+          "required": true,
+          "default": "medium",
+          "options": [
+            { "id": "small", "name": "Small", "price_adjustment": -0.50 },
+            { "id": "medium", "name": "Medium", "price_adjustment": 0 },
+            { "id": "large", "name": "Large", "price_adjustment": 1.00 }
+          ]
+        },
+        {
+          "id": "ice",
+          "name": "Ice Level",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "none", "name": "No Ice", "price_adjustment": 0 },
+            { "id": "light", "name": "Light Ice", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular Ice", "price_adjustment": 0 },
+            { "id": "extra", "name": "Extra Ice", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "sweetness",
+          "name": "Sweetness",
+          "type": "range",
+          "required": false,
+          "default": 5,
+          "min": 0,
+          "max": 9,
+          "step": 1,
+          "label": "pumps"
+        },
+        {
+          "id": "flavor_shots",
+          "name": "Flavor Shots",
+          "required": false,
+          "multi_select": true,
+          "options": [
+            { "id": "strawberry", "name": "Strawberry", "price_adjustment": 0.50 },
+            { "id": "peach", "name": "Peach", "price_adjustment": 0.50 },
+            { "id": "mango", "name": "Mango", "price_adjustment": 0.50 }
+          ]
+        }
+      ]
+    },
+    "tea": {
+      "id": "tea",
+      "name": "Teas",
+      "description": "Tea drink modifiers",
+      "groups": [
+        {
+          "id": "size",
+          "name": "Size",
+          "required": true,
+          "default": "medium",
+          "options": [
+            { "id": "small", "name": "Small", "price_adjustment": -0.50 },
+            { "id": "medium", "name": "Medium", "price_adjustment": 0 },
+            { "id": "large", "name": "Large", "price_adjustment": 1.00 }
+          ]
+        },
+        {
+          "id": "ice",
+          "name": "Ice Level",
+          "required": false,
+          "default": "regular",
+          "options": [
+            { "id": "none", "name": "No Ice", "price_adjustment": 0 },
+            { "id": "light", "name": "Light Ice", "price_adjustment": 0 },
+            { "id": "regular", "name": "Regular Ice", "price_adjustment": 0 },
+            { "id": "extra", "name": "Extra Ice", "price_adjustment": 0 }
+          ]
+        },
+        {
+          "id": "sweetness",
+          "name": "Sweetness",
+          "type": "range",
+          "required": false,
+          "default": 5,
+          "min": 0,
+          "max": 9,
+          "step": 1,
+          "label": "pumps"
+        }
+      ]
+    },
+    "snack": {
+      "id": "snack",
+      "name": "Snacks",
+      "description": "Snack modifiers (quantity only)",
+      "groups": [
+        {
+          "id": "quantity_note",
+          "name": "Note",
+          "type": "info",
+          "message": "Adjust quantity in the main form"
+        }
+      ]
+    }
+  },
+  "product_modifier_mappings": {
+    "7909309": "default_coffee",
+    "7909310": "default_coffee",
+    "7909299": "hot_coffee",
+    "7909300": "hot_coffee",
+    "7909301": "rebel",
+    "7909311": "rebel",
+    "7909302": "freeze",
+    "7909307": "freeze",
+    "7909308": "lemonade",
+    "7909316": "lemonade",
+    "7909312": "tea",
+    "7909313": "tea",
+    "7301376": "snack",
+    "7301377": "snack"
+  },
+  "default_chain": "default_coffee"
+}

@@ -1,0 +1,53 @@
+<div class="customization-panel">
+  <h3>Customize: {{ product.name }}</h3>
+
+  <div class="price-display">
+    Total Price: <strong>$ {{ finalPrice().toFixed(2) }}</strong>
+  </div>
+
+  <form>
+    <div *ngFor="let group of modifierChain.groups" class="modifier-group">
+      <h4>
+        {{ group.name }}
+        <span *ngIf="group.required" class="required">(Required)</span>
+      </h4>
+
+      <div *ngIf="group.options">
+        <div *ngFor="let option of group.options">
+          <input
+            [type]="group.multi_select ? 'checkbox' : 'radio'"
+            [name]="group.id"
+            [id]="group.id + '-' + option.id"
+            [value]="option.id"
+            [checked]="!group.multi_select && selectedOptions()[group.id] === option.id"
+            (change)="updateSelection(group.id, $event, !!group.multi_select)"
+          />
+          <label [for]="group.id + '-' + option.id">
+            {{ option.name }}{{ getAdjustment(option.price_adjustment) }}
+            <span *ngIf="option.dairy_free" class="dairy-free">[DF]</span>
+          </label>
+        </div>
+      </div>
+
+      <div *ngIf="group.type === 'range'">
+        <input
+          type="range"
+          [min]="group.min"
+          [max]="group.max"
+          [step]="group.step"
+          [value]="selectedOptions()[group.id] || group.default"
+          (input)="updateSelection(group.id, $event, false)"
+        />
+        <p>Current {{ group.name }}: **{{ selectedOptions()[group.id] || group.default }} {{ group.label }}**</p>
+      </div>
+      
+      <div *ngIf="group.type === 'info'" class="modifier-info">
+          {{ group.message }}
+      </div>
+    </div>
+  </form>
+
+  <button (click)="submitOrder()">Add to Order</button>
+  <button (click)="cancel.emit()">Cancel</button>
+
+</div>

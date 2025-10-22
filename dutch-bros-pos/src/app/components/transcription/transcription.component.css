@@ -1,0 +1,45 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.controls button {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.transcription-box {
+  flex-grow: 1;
+  border: 1px solid #eee;
+  background-color: #fafafa;
+  padding: 10px;
+  overflow-y: auto;
+  min-height: 200px;
+  line-height: 1.5;
+}
+
+/* Style for the "in-progress" text */
+.partial {
+  color: #888;
+}
+
+.placeholder, .listening {
+  color: #888;
+  font-style: italic;
+}
+
+.error-box {
+  background-color: #fff0f0;
+  border: 1px solid #d8000c;
+  color: #d8000c;
+  padding: 10px;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}

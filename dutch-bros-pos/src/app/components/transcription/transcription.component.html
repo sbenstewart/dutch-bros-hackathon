@@ -1,0 +1,26 @@
+<h4>Live Transcription</h4>
+
+<div class="controls">
+  <button (click)="onStart()" [disabled]="isTranscribing">
+    Start
+  </button>
+  <button (click)="onStop()" [disabled]="!isTranscribing">
+    Stop
+  </button>
+</div>
+
+<div *ngIf="errorMessage" class="error-box">
+  <strong>Error:</strong> {{ errorMessage }}
+</div>
+
+<div class="transcription-box">
+  <p *ngIf="!isTranscribing && !finalTranscript && !errorMessage" class="placeholder">
+    Click 'Start' to begin transcription.
+  </p>
+  <p *ngIf="isTranscribing && !finalTranscript && !partialTranscript" class="listening">
+    Listening...
+  </p>
+  
+  <span>{{ finalTranscript }}</span>
+  <span class="partial">{{ partialTranscript }}</span>
+</div>
