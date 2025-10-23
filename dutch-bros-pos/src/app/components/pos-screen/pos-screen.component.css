@@ -9,20 +9,70 @@
   background-color: #f7f8fc;
 }
 
-.pos-container {
+/* New layout structure */
+.pos-layout {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
   height: 100%;
 }
 
-/* --- Column 1: Menu Panel (65%) --- */
-.menu-panel {
-  flex: 6.5; 
+/* --- Main Tab Navigation --- */
+.main-nav {
+  display: flex;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 2rem;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.main-nav button {
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #555;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.main-nav button:hover {
+  color: #000;
+}
+
+.main-nav button.active {
+  color: #004a99;
+  border-bottom-color: #004a99;
+}
+
+/* --- Content Panels Container --- */
+.content-panels {
+  flex-grow: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.content-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+}
+
+/* --- Panel-specific styles --- */
+
+/* --- Menu Panel --- */
+.menu-panel {
   background-color: #f7f8fc;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .menu-header {
@@ -31,6 +81,7 @@
   border-bottom: 1px solid #e0e0e0;
   z-index: 10;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  min-width: 0;
 }
 
 .menu-header-top {
@@ -56,9 +107,16 @@
 
 .category-tabs {
   display: flex;
-  flex-wrap: wrap;
   gap: 12px;
+  white-space: nowrap;
+  overflow-x: auto;
+  padding-bottom: 10px;
 }
+
+.category-tabs::-webkit-scrollbar { height: 6px; }
+.category-tabs::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+.category-tabs::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+.category-tabs::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
 .category-tabs button {
   padding: 10px 18px;
@@ -69,6 +127,7 @@
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .category-tabs button:hover {
@@ -76,19 +135,21 @@
 }
 
 .category-tabs button.active {
-  background-color: #004a99; /* Blue from screenshot */
+  background-color: #004a99;
   color: white;
   border-color: #004a99;
 }
 
 .product-grid {
-  flex-grow: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   overflow-y: auto;
   padding: 2rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1.5rem;
   align-content: flex-start;
+  height: 0;
 }
 
 .product-card {
@@ -99,6 +160,7 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   overflow: hidden;
   border: 1px solid #eee;
+  min-height: 230px;
 }
 
 .product-card:hover {
@@ -107,11 +169,11 @@
 }
 
 .product-image {
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
   display: block;
-  background-color: #f4f4f4;
+  margin: 0 auto;
 }
 
 .product-info {
@@ -133,15 +195,10 @@
   font-weight: 500;
 }
 
-/* --- Column 2: Order Panel (35%) --- */
+/* --- Order Panel (Cart) --- */
 .order-panel {
-  flex: 3.5; 
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
   background-color: #ffffff;
-  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.05);
-  z-index: 20;
+  /* No longer needs flex or box-shadow from side-by-side layout */
 }
 
 .order-header {
@@ -150,7 +207,7 @@
 }
 
 .order-header h2 {
-  margin: 0 0 1rem 0;
+  margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
 }
@@ -262,7 +319,7 @@
   padding: 1.25rem;
   font-size: 1.1rem;
   font-weight: 700;
-  background-color: #004a99; /* Blue from screenshot */
+  background-color: #004a99;
   color: white;
   border: none;
   border-radius: 12px;
@@ -279,7 +336,21 @@
   cursor: not-allowed;
 }
 
-/* --- Modifier Modal Styles --- */
+/* --- Transcription Panel --- */
+.transcription-panel {
+  background-color: #ffffff;
+}
+
+.transcription-content {
+  padding: 2rem;
+  flex-grow: 1;
+  overflow-y: auto;
+  color: #333;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* --- Modifier Modal Styles (Unaffected) --- */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -293,7 +364,6 @@
   z-index: 1000;
 }
 
-/* This targets the <app-modifier-selector> element */
 .modal-content {
   background: white;
   border-radius: 16px;

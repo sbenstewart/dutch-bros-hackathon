@@ -3,21 +3,25 @@ import { CommonModule } from '@angular/common'; // Replaces NgFor/NgIf
 import { MenuService } from '../../services/menu.service';
 import { Product, ModifierChain, OrderItem, Category } from '../../models/menu.model';
 import { ModifierSelectorComponent } from '../modifier-selector/modifier-selector.component';
+import { TranscriptionComponent } from '../transcription/transcription.component';
 
 @Component({
   selector: 'app-pos-screen',
   templateUrl: './pos-screen.component.html',
   styleUrls: ['./pos-screen.component.css'], // We will add this CSS file
   standalone: true,
-  imports: [CommonModule, ModifierSelectorComponent]
+  imports: [CommonModule, ModifierSelectorComponent, TranscriptionComponent]
 })
 export class PosScreenComponent implements OnInit {
   
+  // --- STATE FOR TABS ---
+  activeTab = signal<'menu' | 'cart' | 'transcription'>('menu');
+
   // --- STATE FOR MENU ---
   categories: Signal<Category[]>;
   imagePath: Signal<string>;
   selectedCategory = signal<Category | undefined>(undefined);
-
+  
   // --- STATE FOR CUSTOMIZATION MODAL ---
   selectedProduct = signal<Product | undefined>(undefined);
   selectedProductModifiers: Signal<ModifierChain | undefined> = computed(() => {
@@ -60,6 +64,11 @@ export class PosScreenComponent implements OnInit {
     if (firstCategory()) {
       this.selectCategory(firstCategory());
     }
+  }
+
+  // --- TAB NAVIGATION ---
+  setActiveTab(tab: 'menu' | 'cart' | 'transcription'): void {
+    this.activeTab.set(tab);
   }
   
   // --- MENU PANEL METHODS ---

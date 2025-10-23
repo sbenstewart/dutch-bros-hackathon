@@ -1,88 +1,112 @@
-<!-- Main POS Layout -->
-<div class="pos-container">
-  
-  <!-- Column 1: Menu Panel -->
-  <main class="menu-panel">
-    <header class="menu-header">
-      <div class="menu-header-top">
-        <h1>Create Order</h1>
-        <input type="text" placeholder="Search menu items..." class="search-bar" />
-      </div>
-      
-      <!-- Category Tabs -->
-      <nav class="category-tabs">
-        <button *ngFor="let category of categories()"
-                [class.active]="category.id === selectedCategory()?.id"
-                (click)="selectCategory(category)">
-          {{ category.name }}
-        </button>
-      </nav>
-    </header>
+<!-- Main POS Layout with Tabs -->
+<div class="pos-layout">
 
-    <!-- Product Grid -->
-    <section class="product-grid" *ngIf="selectedCategory() as category">
-      <div *ngFor="let product of category.products" 
-           class="product-card"
-           (click)="selectProduct(product)">
+  <!-- Main Navigation Tabs -->
+  <nav class="main-nav">
+    <button 
+      [class.active]="activeTab() === 'menu'" 
+      (click)="setActiveTab('menu')">
+      Menu
+    </button>
+    <button 
+      [class.active]="activeTab() === 'cart'" 
+      (click)="setActiveTab('cart')">
+      Cart ({{ currentOrder().length }})
+    </button>
+    <button 
+      [class.active]="activeTab() === 'transcription'" 
+      (click)="setActiveTab('transcription')">
+      Live Transcription
+    </button>
+  </nav>
+
+  <!-- Content Panels -->
+  <div class="content-panels">
+
+    <!-- Panel 1: Menu -->
+    <main class="menu-panel content-panel" *ngIf="activeTab() === 'menu'">
+      <header class="menu-header">
+        <div class="menu-header-top">
+          <h1>Create Order</h1>
+          <input type="text" placeholder="Search menu items..." class="search-bar" />
+        </div>
         
-        <!-- Use the image CDN path from the service -->
-        <img [src]="imagePath() + product.imagefilename" 
-             [alt]="product.name" 
-             class="product-image" />
-        <div class="product-info">
-          <span class="product-name">{{ product.name }}</span>
-          <span class="product-price">${{ product.cost.toFixed(2) }}</span>
+        <nav class="category-tabs">
+          <button *ngFor="let category of categories()"
+                  [class.active]="category.id === selectedCategory()?.id"
+                  (click)="selectCategory(category)">
+            {{ category.name }}
+          </button>
+        </nav>
+      </header>
+
+      <section class="product-grid" *ngIf="selectedCategory() as category">
+        <div *ngFor="let product of category.products" 
+             class="product-card"
+             (click)="selectProduct(product)">
+          
+          <img [src]="imagePath() + product.imagefilename" 
+               [alt]="product.name" 
+               class="product-image" />
+          <div class="product-info">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-price">${{ product.cost.toFixed(2) }}</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Panel 2: Order Panel (Cart) -->
+    <aside class="order-panel content-panel" *ngIf="activeTab() === 'cart'">
+      <header class="order-header">
+        <h2>Current Order ({{ currentOrder().length }})</h2>
+      </header>
+
+      <div class="order-summary-scrollable">
+        <div *ngIf="currentOrder().length === 0" class="empty-cart">
+          Your order is empty.
+        </div>
+
+        <div *ngFor="let item of currentOrder()" class="order-item">
+          <div class="order-item-details">
+            <span class="item-name">{{ item.name }}</span>
+            <span class="item-modifiers">{{ formatModifiers(item) }}</span>
+          </div>
+          <div class="order-item-controls">
+            <button (click)="decrementQuantity(item.id!)" class="control-btn">-</button>
+            <span class="item-quantity">{{ item.quantity }}</span>
+            <button (click)="incrementQuantity(item.id!)" class="control-btn">+</button>
+          </div>
+          <span class="item-price">${{ (item.unit_price * item.quantity).toFixed(2) }}</span>
+          <button (click)="removeFromOrder(item.id!)" class="control-btn remove-btn">&times;</button>
         </div>
       </div>
-    </section>
-  </main>
 
-  <!-- Column 2: Order Panel (Cart) -->
-  <aside class="order-panel">
-    <header class="order-header">
-      <h2>Current Order ({{ currentOrder().length }})</h2>
-    </header>
-
-    <!-- Scrollable list of items in the cart -->
-    <div class="order-summary-scrollable">
-      <div *ngIf="currentOrder().length === 0" class="empty-cart">
-        Your order is empty.
-      </div>
-
-      <div *ngFor="let item of currentOrder()" class="order-item">
-        <div class="order-item-details">
-          <span class="item-name">{{ item.name }}</span>
-          <span class="item-modifiers">{{ formatModifiers(item) }}</span>
+      <footer class="order-summary-footer">
+        <div class="price-line">
+          <span>Subtotal</span>
+          <span>${{ orderSubtotal().toFixed(2) }}</span>
         </div>
-        <div class="order-item-controls">
-          <button (click)="decrementQuantity(item.id!)" class="control-btn">-</button>
-          <span class="item-quantity">{{ item.quantity }}</span>
-          <button (click)="incrementQuantity(item.id!)" class="control-btn">+</button>
+        <div class="price-line">
+          <span>Tax (8%)</span>
+          <span>${{ orderTax().toFixed(2) }}</span>
         </div>
-        <span class="item-price">${{ (item.unit_price * item.quantity).toFixed(2) }}</span>
-        <button (click)="removeFromOrder(item.id!)" class="control-btn remove-btn">&times;</button>
-      </div>
+        <div class="price-line total-line">
+          <span>Total</span>
+          <span>${{ orderTotal().toFixed(2) }}</span>
+        </div>
+        <button class="charge-button" [disabled]="currentOrder().length === 0">
+          Charge ${{ orderTotal().toFixed(2) }}
+        </button>
+      </footer>
+    </aside>
+
+    <!-- Panel 3: Live Transcription -->
+    <div class="transcription-panel content-panel" *ngIf="activeTab() === 'transcription'">
+      <app-transcription></app-transcription>
     </div>
 
-    <!-- Order Total and Checkout -->
-    <footer class="order-summary-footer">
-      <div class="price-line">
-        <span>Subtotal</span>
-        <span>${{ orderSubtotal().toFixed(2) }}</span>
-      </div>
-      <div class="price-line">
-        <span>Tax (8%)</span>
-        <span>${{ orderTax().toFixed(2) }}</span>
-      </div>
-      <div class="price-line total-line">
-        <span>Total</span>
-        <span>${{ orderTotal().toFixed(2) }}</span>
-      </div>
-      <button class="charge-button" [disabled]="currentOrder().length === 0">
-        Charge ${{ orderTotal().toFixed(2) }}
-      </button>
-    </footer>
-  </aside>
+  </div>
 
 </div>
 

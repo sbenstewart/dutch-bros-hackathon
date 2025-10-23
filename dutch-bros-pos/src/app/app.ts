@@ -6,13 +6,11 @@ import { TranscriptionComponent } from './components/transcription/transcription
   selector: 'app-root',
   standalone: true, 
   imports: [
-    PosScreenComponent,
-    TranscriptionComponent // 2. Add to imports
+    PosScreenComponent
   ], 
   template: `
     <div class="app-layout">
       <app-pos-screen class="main-content"></app-pos-screen>
-      <app-transcription class="transcription-sidebar"></app-transcription>
     </div>
   `,
   styles: [`
