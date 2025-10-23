@@ -138,8 +138,7 @@ export class PosScreenComponent implements OnInit {
 
   // Helper function to display modifiers cleanly in the cart
   formatModifiers(item: OrderItem): string {
-    const size = item.size ? [item.size.charAt(0).toUpperCase() + item.size.slice(1)] : [];
     const mods = item.child_items.map(mod => mod.name);
-    return [...size, ...mods].join(', ');
+    return [...mods].join(', ');
   }
 }
