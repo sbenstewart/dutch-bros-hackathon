@@ -375,3 +375,9 @@
   flex-direction: column;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
+
+.order-item-details:hover .item-name.hyperlink {
+  text-decoration: underline;
+  color: #005bb5;
+  cursor: pointer;
+}

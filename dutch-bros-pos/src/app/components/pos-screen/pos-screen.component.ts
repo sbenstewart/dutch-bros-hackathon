@@ -39,6 +39,10 @@ export class PosScreenComponent implements OnInit {
 
   // --- STATE FOR ORDER (CART) ---
   currentOrder = signal<OrderItem[]>([]);
+
+    // --- STATE FOR CART ITEM EDITING ---
+  cartItemSelections: { [key: string]: string | string[] } | undefined;
+  editingCartItemId: string | undefined;
   
   // Computed totals based on the cart (like in the screenshot)
   orderSubtotal = computed(() => {
@@ -99,16 +103,23 @@ export class PosScreenComponent implements OnInit {
 
   // --- ORDER PANEL (CART) METHODS ---
   
-  addToOrder(item: OrderItem): void {
-    const newItem: OrderItem = {
-      ...item,
-      id: `item-${Date.now()}-${Math.random()}`, // Unique ID for cart
-      // quantity is now set inside the modifier modal
-    };
-    
-    this.currentOrder.update(items => [...items, newItem]);
-    this.clearSelection(); // This now closes the modal
-  }
+    addToOrder(item: OrderItem): void {
+      // If editing an existing item, treat as new unless modifyExisting is used
+      const newItem: OrderItem = {
+        ...item,
+        id: `item-${Date.now()}-${Math.random()}`,
+      };
+      this.currentOrder.update(items => [...items, newItem]);
+      this.editingCartItemId = undefined;
+      this.clearSelection();
+    }
+
+    modifyExistingItem(item: OrderItem): void {
+      if (!this.editingCartItemId) return;
+      this.currentOrder.update(items => items.map(i => i.id === this.editingCartItemId ? { ...item, id: i.id } : i));
+      this.editingCartItemId = undefined;
+      this.clearSelection();
+    }
 
   incrementQuantity(itemId: string): void {
     this.currentOrder.update(items =>
@@ -141,4 +152,40 @@ export class PosScreenComponent implements OnInit {
     const mods = item.child_items.map(mod => mod.name);
     return [...mods].join(', ');
   }
+
+    // Called when clicking a cart item to edit
+    editCartItem(item: OrderItem): void {
+      // Track which cart item is being edited
+      this.editingCartItemId = item.id;
+      // Map child_items to selections object using option IDs
+      const selections: { [key: string]: string | string[] } = {};
+      // Find the product and its modifier chain
+      const prod = this.products().find(p => p.chainproductid.toString() === item.product_id);
+      const modifierChain = prod ? this.menuService.getModifierChain(prod.chainproductid.toString())() : undefined;
+      if (modifierChain) {
+        item.child_items.forEach(mod => {
+          // Find the group and option by name
+          const group = modifierChain.groups.find(g => g.id === mod.modifier_group);
+          const option = group?.options?.find(o => o.name === mod.name);
+          if (!option) return;
+          // If multi-select, accumulate as array
+          if (group?.multi_select) {
+            if (selections[mod.modifier_group]) {
+              (selections[mod.modifier_group] as string[]).push(option.id);
+            } else {
+              selections[mod.modifier_group] = [option.id];
+            }
+          } else {
+            selections[mod.modifier_group] = option.id;
+          }
+        });
+        this.cartItemSelections = selections;
+      } else {
+        this.cartItemSelections = undefined;
+      }
+      // Set selected product and open modal
+      if (prod) {
+        this.selectedProduct.set(prod);
+      }
+    }
 }

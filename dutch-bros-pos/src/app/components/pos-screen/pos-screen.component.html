@@ -74,16 +74,16 @@
 
         <div *ngFor="let item of currentOrder()" class="order-item">
           <div class="order-item-details">
-            <span class="item-name">{{ item.name }}</span>
+            <span class="item-name hyperlink" (click)="editCartItem(item)">{{ item.name }}</span>
             <span class="item-modifiers">{{ formatModifiers(item) }}</span>
           </div>
           <div class="order-item-controls">
-            <button (click)="decrementQuantity(item.id!)" class="control-btn">-</button>
+            <button (click)="decrementQuantity(item.id!); $event.stopPropagation();" class="control-btn">-</button>
             <span class="item-quantity">{{ item.quantity }}</span>
-            <button (click)="incrementQuantity(item.id!)" class="control-btn">+</button>
+            <button (click)="incrementQuantity(item.id!); $event.stopPropagation();" class="control-btn">+</button>
           </div>
           <span class="item-price">${{ (item.unit_price * item.quantity).toFixed(2) }}</span>
-          <button (click)="removeFromOrder(item.id!)" class="control-btn remove-btn">&times;</button>
+          <button (click)="removeFromOrder(item.id!); $event.stopPropagation();" class="control-btn remove-btn">&times;</button>
         </div>
       </div>
 
@@ -124,7 +124,10 @@
     class="modal-content"
     [product]="selectedProduct()!"
     [modifierChain]="modifiers"
+  [initialSelections]="cartItemSelections"
+  [editingCartItemId]="editingCartItemId"
     (orderItemReady)="addToOrder($event)"
+    (modifyItem)="modifyExistingItem($event)"
     (cancel)="clearSelection()"
   ></app-modifier-selector>
 </div>

@@ -81,7 +81,12 @@
       ${{ singleItemPrice().toFixed(2) }} each &times; {{ quantity() }}
     </span>
   </div>
-  <button class="add-to-cart-btn" (click)="addToCart()">
-    Add to Cart
-  </button>
+  <div class="action-buttons">
+    <button class="add-to-cart-btn" (click)="addToCart()">
+      Add New
+    </button>
+    <button *ngIf="editingCartItemId" class="add-to-cart-btn" (click)="modifyExisting()">
+      Modify
+    </button>
+  </div>
 </footer>

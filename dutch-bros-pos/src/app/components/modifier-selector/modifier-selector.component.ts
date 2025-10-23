@@ -17,7 +17,10 @@ export class ModifierSelectorComponent implements OnInit {
   // --- Inputs / Outputs ---
   @Input({ required: true }) product!: Product;
   @Input({ required: true }) modifierChain!: ModifierChain;
+  @Input() initialSelections?: Selections;
+  @Input() editingCartItemId?: string;
   @Output() orderItemReady = new EventEmitter<OrderItem>();
+  @Output() modifyItem = new EventEmitter<OrderItem>();
   @Output() cancel = new EventEmitter<void>();
 
   // --- Internal State Signals ---
@@ -93,14 +96,19 @@ export class ModifierSelectorComponent implements OnInit {
   }
 
   ngOnInit() {
-    // Set default selections
-    const defaults: Selections = {};
-    for (const group of this.modifierChain.groups) {
-      if (group.default) {
-        defaults[group.id] = group.default as string;
+    // Use initialSelections if provided (for editing cart item)
+    if (this.initialSelections) {
+      this.selectedModifiers.set(this.initialSelections);
+    } else {
+      // Set default selections
+      const defaults: Selections = {};
+      for (const group of this.modifierChain.groups) {
+        if (group.default) {
+          defaults[group.id] = group.default as string;
+        }
       }
+      this.selectedModifiers.set(defaults);
     }
-    this.selectedModifiers.set(defaults);
   }
 
   // --- Modal Actions ---
@@ -151,7 +159,7 @@ export class ModifierSelectorComponent implements OnInit {
   }
 
   // Build and emit the final OrderItem
-  addToCart() {
+  buildOrderItem(): OrderItem {
     const selections = this.selectedModifiers();
     const size = (selections['size'] as string) || 'medium';
 
@@ -169,7 +177,7 @@ export class ModifierSelectorComponent implements OnInit {
       });
     });
 
-    const orderItem: OrderItem = {
+    return {
       product_id: this.product.chainproductid.toString(),
       name: this.product.name,
       category: 'drink', // You might want to pass this in
@@ -178,8 +186,14 @@ export class ModifierSelectorComponent implements OnInit {
       unit_price: this.singleItemPrice(), // Send the price for *one* item
       child_items: child_items
     };
-    
-    this.orderItemReady.emit(orderItem);
+  }
+
+  addToCart() {
+    this.orderItemReady.emit(this.buildOrderItem());
+  }
+
+  modifyExisting() {
+    this.modifyItem.emit(this.buildOrderItem());
   }
 
   // Helper to get the correct product image for the modal
