@@ -2,8 +2,13 @@ import os
 import boto3  # Used by the streaming library for credentials
 import uvicorn
 import asyncio  # Used heavily for streaming
+import httpx  # For making HTTP requests to Dutch Bros API
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import uuid
 from dotenv import load_dotenv
 
 # Import the AWS Transcribe Streaming SDK from the 'amazon-transcribe' package
@@ -19,6 +24,10 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION")
 
+# Dutch Bros POS API Configuration
+DUTCH_BROS_API_BASE_URL = os.getenv("DUTCH_BROS_API_BASE_URL", "https://pos-api.example.com/v1")
+DUTCH_BROS_API_KEY = os.getenv("DUTCH_BROS_API_KEY")
+
 # Basic validation
 if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION]):
     print("--------------------------------------------------")
@@ -27,6 +36,12 @@ if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION]):
     print("--------------------------------------------------")
     # In a real app, you'd exit here
     # exit(1)
+
+if not DUTCH_BROS_API_KEY:
+    print("--------------------------------------------------")
+    print("WARNING: Missing DUTCH_BROS_API_KEY in .env file.")
+    print("Order submission to backend API will not work.")
+    print("--------------------------------------------------")
 
 # --- FastAPI App ---
 app = FastAPI()
@@ -45,6 +60,131 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+
+# --- Order Models ---
+class OrderItem(BaseModel):
+    product_id: str
+    name: str
+    category: str
+    size: str
+    quantity: int
+    unit_price: float
+    child_items: List[Dict[str, Any]] = []
+
+class SubmitOrderRequest(BaseModel):
+    customer_name: str
+    items: List[OrderItem]
+    notes: Optional[str] = None
+
+class OrderResponse(BaseModel):
+    status: str
+    message: str
+    order_id: str
+    timestamp: str
+
+
+# --- Order Endpoint ---
+@app.post("/submit-order", response_model=OrderResponse)
+async def submit_order(order: SubmitOrderRequest):
+    """
+    Submit a new order to the Dutch Bros POS system.
+    
+    This endpoint accepts customer name and order items,
+    forwards them to the Dutch Bros backend API, and returns confirmation.
+    """
+    try:
+        # Prepare order data in the format expected by Dutch Bros API
+        # Following the structure from python.py example
+        order_items = []
+        for item in order.items:
+            # Build modifiers dictionary from child_items
+            modifiers = {}
+            for mod in item.child_items:
+                # Use modifier group as key and modifier name as value
+                modifiers[mod['modifier_group']] = mod['name']
+            
+            order_items.append({
+                "name": item.name,
+                "category": item.category,
+                "size": item.size,
+                "quantity": item.quantity,
+                "modifiers": modifiers
+            })
+        
+        api_payload = {
+            "source": "online",
+            "customer_name": order.customer_name,
+            "items": order_items
+        }
+        
+        if order.notes:
+            api_payload["notes"] = order.notes
+        
+        # Log the order locally
+        print(f"\n{'='*60}")
+        print(f"SUBMITTING ORDER TO DUTCH BROS API")
+        print(f"{'='*60}")
+        print(f"Customer: {order.customer_name}")
+        print(f"Items: {len(order.items)}")
+        
+        # Log the complete request body
+        print(f"\nRequest Body:")
+        import json
+        print(json.dumps(api_payload, indent=2))
+        
+        # Make API call to Dutch Bros backend
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": DUTCH_BROS_API_KEY,
+            "Idempotency-Key": str(uuid.uuid4())
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{DUTCH_BROS_API_BASE_URL}/orders",
+                json=api_payload,
+                headers=headers
+            )
+        
+        if response.status_code == 202:
+            result = response.json()
+            order_data = result.get('data', {})
+            order_id = order_data.get('order_id', f"ORD-{uuid.uuid4().hex[:8].upper()}")
+            
+            print(f"✓ Order submitted successfully: {order_id}")
+            if 'kds_url' in order_data:
+                print(f"✓ KDS URL: {order_data['kds_url']}")
+            print(f"{'='*60}\n")
+            
+            return OrderResponse(
+                status="success",
+                message=f"Order submitted to Dutch Bros POS for {order.customer_name}",
+                order_id=order_id,
+                timestamp=datetime.now().isoformat()
+            )
+        else:
+            # API call failed
+            error_detail = response.json() if response.text else {"error": "Unknown error"}
+            error_message = error_detail.get('error', {}).get('message', response.text)
+            print(f"✗ API Error ({response.status_code}): {error_message}")
+            print(f"{'='*60}\n")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Dutch Bros API error: {error_message}"
+            )
+        
+    except httpx.RequestError as e:
+        print(f"✗ Network error connecting to Dutch Bros API: {e}")
+        print(f"{'='*60}\n")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to connect to Dutch Bros API: {str(e)}"
+        )
+    except Exception as e:
+        print(f"✗ Error processing order: {e}")
+        print(f"{'='*60}\n")
+        raise HTTPException(status_code=500, detail=f"Failed to process order: {str(e)}")
 
 
 # --- WebSocket Audio Stream ---

@@ -1,5 +1,7 @@
 import { Component, OnInit, signal, Signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common'; // Replaces NgFor/NgIf
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { MenuService } from '../../services/menu.service';
 import { Product, ModifierChain, OrderItem, Category } from '../../models/menu.model';
 import { ModifierSelectorComponent } from '../modifier-selector/modifier-selector.component';
@@ -11,7 +13,7 @@ import { FilterProductsPipe } from './filter-products.pipe';
   templateUrl: './pos-screen.component.html',
   styleUrls: ['./pos-screen.component.css'], // We will add this CSS file
   standalone: true,
-  imports: [CommonModule, ModifierSelectorComponent, TranscriptionComponent, FilterProductsPipe]
+  imports: [CommonModule, FormsModule, ModifierSelectorComponent, TranscriptionComponent, FilterProductsPipe]
 })
 export class PosScreenComponent implements OnInit {
   products: Signal<Product[]>;
@@ -29,6 +31,7 @@ export class PosScreenComponent implements OnInit {
   
   // --- STATE FOR CUSTOMIZATION MODAL ---
   selectedProduct = signal<Product | undefined>(undefined);
+  modalQuantity = signal<number>(1);
   selectedProductModifiers: Signal<ModifierChain | undefined> = computed(() => {
     const product = this.selectedProduct();
     if (product) {
@@ -39,6 +42,8 @@ export class PosScreenComponent implements OnInit {
 
   // --- STATE FOR ORDER (CART) ---
   currentOrder = signal<OrderItem[]>([]);
+  customerName: string = '';
+  orderNotes: string = '';
 
     // --- STATE FOR CART ITEM EDITING ---
   cartItemSelections: { [key: string]: string | string[] } | undefined;
@@ -61,7 +66,7 @@ export class PosScreenComponent implements OnInit {
     return this.orderSubtotal() + this.orderTax();
   });
 
-  constructor(private menuService: MenuService) {
+  constructor(private menuService: MenuService, private http: HttpClient) {
   this.categories = this.menuService.categories;
   this.imagePath = this.menuService.imagePath;
   this.products = this.menuService.products;
@@ -94,11 +99,16 @@ export class PosScreenComponent implements OnInit {
   // Click on a product card now *sets* the product, which opens the modal
   selectProduct(product: Product): void {
     this.selectedProduct.set(product);
+    this.modalQuantity.set(1);
+    this.editingCartItemId = undefined;
+    this.cartItemSelections = undefined;
   }
 
   // Called from modal to close it
   clearSelection(): void {
     this.selectedProduct.set(undefined);
+    this.cartItemSelections = undefined;
+    this.editingCartItemId = undefined;
   }
 
   // --- ORDER PANEL (CART) METHODS ---
@@ -153,6 +163,17 @@ export class PosScreenComponent implements OnInit {
     return [...mods].join(', ');
   }
 
+  // Get the image URL for a cart item
+  getCartItemImage(item: OrderItem): string {
+    // Find the product by chainproductid (stored as product_id in cart)
+    const product = this.products().find(p => p.chainproductid.toString() === item.product_id);
+    if (product && product.imagefilename) {
+      return this.imagePath() + product.imagefilename;
+    }
+    // Return a placeholder if image not found
+    return this.imagePath() + 'placeholder.png';
+  }
+
     // Called when clicking a cart item to edit
     editCartItem(item: OrderItem): void {
       // Track which cart item is being edited
@@ -186,6 +207,43 @@ export class PosScreenComponent implements OnInit {
       // Set selected product and open modal
       if (prod) {
         this.selectedProduct.set(prod);
+        this.modalQuantity.set(item.quantity || 1);
       }
+    }
+
+    // Submit order to backend
+    submitOrder(): void {
+      if (!this.customerName.trim()) {
+        alert('Please enter a customer name');
+        return;
+      }
+
+      if (this.currentOrder().length === 0) {
+        alert('Cart is empty');
+        return;
+      }
+
+      const payload = {
+        customer_name: this.customerName.trim(),
+        items: this.currentOrder(),
+        notes: this.orderNotes.trim() || undefined
+      };
+
+      this.http.post('http://localhost:8000/submit-order', payload)
+        .subscribe({
+          next: (response: any) => {
+            alert(`Order submitted successfully!\nOrder ID: ${response.order_id}\nCustomer: ${response.message}`);
+            // Clear cart, customer name, and notes after successful submission
+            this.currentOrder.set([]);
+            this.customerName = '';
+            this.orderNotes = '';
+            // Switch to menu tab
+            this.setActiveTab('menu');
+          },
+          error: (error) => {
+            console.error('Error submitting order:', error);
+            alert(`Failed to submit order: ${error.error?.detail || error.message}`);
+          }
+        });
     }
 }

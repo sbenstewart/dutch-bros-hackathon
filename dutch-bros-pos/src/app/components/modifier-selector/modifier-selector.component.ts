@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, computed, WritableSignal, Signal, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, WritableSignal, Signal, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Product, ModifierChain, ModifierGroup, ModifierOption, OrderItem } from '../../models/menu.model';
 import { MenuService } from '../../services/menu.service'; // We need this for the image path
@@ -13,12 +13,13 @@ type Selections = { [groupId: string]: string | string[] };
   templateUrl: './modifier-selector.component.html',
   styleUrls: ['./modifier-selector.component.css'] // We will create this
 })
-export class ModifierSelectorComponent implements OnInit {
+export class ModifierSelectorComponent implements OnInit, OnChanges {
   // --- Inputs / Outputs ---
   @Input({ required: true }) product!: Product;
   @Input({ required: true }) modifierChain!: ModifierChain;
   @Input() initialSelections?: Selections;
   @Input() editingCartItemId?: string;
+  @Input() quantityFromCart?: number;
   @Output() orderItemReady = new EventEmitter<OrderItem>();
   @Output() modifyItem = new EventEmitter<OrderItem>();
   @Output() cancel = new EventEmitter<void>();
@@ -95,12 +96,14 @@ export class ModifierSelectorComponent implements OnInit {
     this.imagePath = this.menuService.imagePath; // Get CDN path
   }
 
-  ngOnInit() {
-    // Use initialSelections if provided (for editing cart item)
-    if (this.initialSelections) {
-      this.selectedModifiers.set(this.initialSelections);
-    } else {
-      // Set default selections
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['quantityFromCart'] && changes['quantityFromCart'].currentValue !== undefined) {
+      this.quantity.set(changes['quantityFromCart'].currentValue);
+    }
+    if (changes['initialSelections'] && changes['initialSelections'].currentValue) {
+      this.selectedModifiers.set(changes['initialSelections'].currentValue);
+    } else if (!this.editingCartItemId) {
+      // This is not an edit, so set defaults
       const defaults: Selections = {};
       for (const group of this.modifierChain.groups) {
         if (group.default) {
@@ -109,6 +112,10 @@ export class ModifierSelectorComponent implements OnInit {
       }
       this.selectedModifiers.set(defaults);
     }
+  }
+
+  ngOnInit() {
+    // The logic from here is now handled in ngOnChanges to react to every input change
   }
 
   // --- Modal Actions ---

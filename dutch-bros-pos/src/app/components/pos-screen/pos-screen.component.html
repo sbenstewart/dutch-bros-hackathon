@@ -73,6 +73,11 @@
         </div>
 
         <div *ngFor="let item of currentOrder()" class="order-item">
+          <img 
+            [src]="getCartItemImage(item)" 
+            [alt]="item.name" 
+            class="cart-item-image"
+          />
           <div class="order-item-details">
             <span class="item-name hyperlink" (click)="editCartItem(item)">{{ item.name }}</span>
             <span class="item-modifiers">{{ formatModifiers(item) }}</span>
@@ -88,20 +93,48 @@
       </div>
 
       <footer class="order-summary-footer">
-        <div class="price-line">
-          <span>Subtotal</span>
-          <span>${{ orderSubtotal().toFixed(2) }}</span>
+        <div class="footer-content">
+          <div class="customer-info-section">
+            <label for="customerName">Customer Name:</label>
+            <input 
+              id="customerName" 
+              type="text"
+              [(ngModel)]="customerName"
+              placeholder="Enter customer name"
+              class="customer-name-input"
+            />
+            
+            <label for="orderNotes" class="notes-label">Order Notes (Optional):</label>
+            <textarea 
+              id="orderNotes" 
+              [(ngModel)]="orderNotes"
+              placeholder="Add special instructions or notes..."
+              class="order-notes-input"
+              rows="3"
+            ></textarea>
+          </div>
+          
+          <div class="price-summary-section">
+            <div class="price-line">
+              <span>Subtotal</span>
+              <span>${{ orderSubtotal().toFixed(2) }}</span>
+            </div>
+            <div class="price-line">
+              <span>Tax (8%)</span>
+              <span>${{ orderTax().toFixed(2) }}</span>
+            </div>
+            <div class="price-line total-line">
+              <span>Total</span>
+              <span>${{ orderTotal().toFixed(2) }}</span>
+            </div>
+          </div>
         </div>
-        <div class="price-line">
-          <span>Tax (8%)</span>
-          <span>${{ orderTax().toFixed(2) }}</span>
-        </div>
-        <div class="price-line total-line">
-          <span>Total</span>
-          <span>${{ orderTotal().toFixed(2) }}</span>
-        </div>
-        <button class="charge-button" [disabled]="currentOrder().length === 0">
-          Charge ${{ orderTotal().toFixed(2) }}
+        
+        <button 
+          class="charge-button" 
+          [disabled]="currentOrder().length === 0 || !customerName.trim()"
+          (click)="submitOrder()">
+          Submit Order
         </button>
       </footer>
     </aside>
@@ -124,8 +157,9 @@
     class="modal-content"
     [product]="selectedProduct()!"
     [modifierChain]="modifiers"
-  [initialSelections]="cartItemSelections"
-  [editingCartItemId]="editingCartItemId"
+    [initialSelections]="cartItemSelections"
+    [editingCartItemId]="editingCartItemId"
+    [quantityFromCart]="modalQuantity()"
     (orderItemReady)="addToOrder($event)"
     (modifyItem)="modifyExistingItem($event)"
     (cancel)="clearSelection()"
