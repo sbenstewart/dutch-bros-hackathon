@@ -28,23 +28,28 @@
       <header class="menu-header">
         <div class="menu-header-top">
           <h1>Create Order</h1>
-          <input type="text" placeholder="Search menu items..." class="search-bar" />
+          <input type="text"
+            placeholder="Search menu items..."
+            class="search-bar"
+            [value]="searchTerm()"
+            (input)="setSearchTerm($event.target.value)" />
         </div>
         
         <nav class="category-tabs">
-          <button *ngFor="let category of categories()"
-                  [class.active]="category.id === selectedCategory()?.id"
-                  (click)="selectCategory(category)">
-            {{ category.name }}
-          </button>
+          <nav class="category-tabs" *ngIf="!searchTerm()">
+            <button *ngFor="let category of categories()"
+                    [class.active]="category.id === selectedCategory()?.id"
+                    (click)="selectCategory(category)">
+              {{ category.name }}
+            </button>
+          </nav>
         </nav>
       </header>
 
       <section class="product-grid" *ngIf="selectedCategory() as category">
-        <div *ngFor="let product of category.products" 
+  <div *ngFor="let product of (searchTerm() ? products() : (selectedCategory()?.products || [])) | filterProducts:searchTerm()"
              class="product-card"
              (click)="selectProduct(product)">
-          
           <img [src]="imagePath() + product.imagefilename" 
                [alt]="product.name" 
                class="product-image" />

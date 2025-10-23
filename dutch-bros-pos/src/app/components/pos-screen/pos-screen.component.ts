@@ -4,15 +4,20 @@ import { MenuService } from '../../services/menu.service';
 import { Product, ModifierChain, OrderItem, Category } from '../../models/menu.model';
 import { ModifierSelectorComponent } from '../modifier-selector/modifier-selector.component';
 import { TranscriptionComponent } from '../transcription/transcription.component';
+import { FilterProductsPipe } from './filter-products.pipe';
 
 @Component({
   selector: 'app-pos-screen',
   templateUrl: './pos-screen.component.html',
   styleUrls: ['./pos-screen.component.css'], // We will add this CSS file
   standalone: true,
-  imports: [CommonModule, ModifierSelectorComponent, TranscriptionComponent]
+  imports: [CommonModule, ModifierSelectorComponent, TranscriptionComponent, FilterProductsPipe]
 })
 export class PosScreenComponent implements OnInit {
+  products: Signal<Product[]>;
+  // --- STATE FOR SEARCH ---
+  searchTerm = signal<string>('');
+
   
   // --- STATE FOR TABS ---
   activeTab = signal<'menu' | 'cart' | 'transcription'>('menu');
@@ -53,9 +58,9 @@ export class PosScreenComponent implements OnInit {
   });
 
   constructor(private menuService: MenuService) {
-    this.categories = this.menuService.categories;
-    // Get the image CDN path from the service
-    this.imagePath = this.menuService.imagePath; 
+  this.categories = this.menuService.categories;
+  this.imagePath = this.menuService.imagePath;
+  this.products = this.menuService.products;
   }
 
   ngOnInit(): void {
@@ -72,6 +77,10 @@ export class PosScreenComponent implements OnInit {
   }
   
   // --- MENU PANEL METHODS ---
+  // --- SEARCH BAR HANDLER ---
+  setSearchTerm(term: string): void {
+    this.searchTerm.set(term);
+  }
 
   selectCategory(category: Category): void {
     this.selectedCategory.set(category);
