@@ -3,16 +3,33 @@ import { HttpClient } from '@angular/common/http';
 import { ModifiersData, ModifierChain, Product, Category } from '../models/menu.model';
 import { map, Observable, tap } from 'rxjs';
 
+// --- ADD THIS INTERFACE ---
+// Defines the structure of menu.json
+interface MenuData {
+  imagepath: string;
+  categories: Category[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class MenuService {
   private modifiersData = signal<ModifiersData | null>(null);
-  private menuCategories = signal<Category[]>([]);
-  private allProducts = signal<Product[]>([]);
+  
+  // --- UPDATE THIS SIGNAL ---
+  // Use the MenuData interface
+  private menuData = signal<MenuData>({ imagepath: '', categories: [] });
 
   // Expose data signals
-  readonly categories: Signal<Category[]> = this.menuCategories;
-  readonly products: Signal<Product[]> = this.allProducts;
+  readonly categories: Signal<Category[]> = computed(() => this.menuData().categories);
+  
+  readonly products: Signal<Product[]> = computed(() => 
+    this.menuData().categories.flatMap((cat: Category) => cat.products)
+  );
+  
   readonly modifiers: Signal<ModifiersData | null> = this.modifiersData;
+
+  // --- ADD THIS SIGNAL ---
+  // This provides the image CDN path to all components
+  readonly imagePath: Signal<string> = computed(() => this.menuData().imagepath);
 
   constructor(private http: HttpClient) {
     this.loadData();
@@ -20,16 +37,18 @@ export class MenuService {
 
   private loadData(): void {
     // Load menu data
-    this.http.get<any>('assets/menu.json').pipe(
+    // --- UPDATE THIS HTTP CALL ---
+    this.http.get<MenuData>('assets/menu.json').pipe(
         tap(data => {
-            this.menuCategories.set(data.categories);
-            const allProducts = data.categories.flatMap((cat: Category) => cat.products);
-            this.allProducts.set(allProducts);
+            console.log('Menu loaded');
+            this.menuData.set(data); // Set the entire object
         })
     ).subscribe();
 
     // Load modifiers data
-    this.http.get<ModifiersData>('assets/modifiers.json').subscribe(data => {
+    this.http.get<ModifiersData>('assets/modifiers.json').pipe(
+      tap(() => console.log('Modifiers loaded'))
+    ).subscribe(data => {
         this.modifiersData.set(data);
     });
   }

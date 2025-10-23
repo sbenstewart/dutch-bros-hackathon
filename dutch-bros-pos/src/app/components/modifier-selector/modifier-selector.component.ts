@@ -1,119 +1,195 @@
-import { Component, Input, signal, computed, Output, EventEmitter, OnInit } from '@angular/core';
-import { NgFor, NgIf, JsonPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ModifierChain, ModifierGroup, ModifierOption, Product, OrderItem } from '../../models/menu.model';
+import { Component, Input, Output, EventEmitter, signal, computed, WritableSignal, Signal, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Product, ModifierChain, ModifierGroup, ModifierOption, OrderItem } from '../../models/menu.model';
+import { MenuService } from '../../services/menu.service'; // We need this for the image path
+
+// Type to store the user's selections
+type Selections = { [groupId: string]: string | string[] };
 
 @Component({
   selector: 'app-modifier-selector',
-  templateUrl: './modifier-selector.component.html',
-//   styleUrls: ['./modifier-selector.component.css'],
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, JsonPipe] // Use standalone component imports
+  imports: [CommonModule],
+  templateUrl: './modifier-selector.component.html',
+  styleUrls: ['./modifier-selector.component.css'] // We will create this
 })
 export class ModifierSelectorComponent implements OnInit {
+  // --- Inputs / Outputs ---
   @Input({ required: true }) product!: Product;
   @Input({ required: true }) modifierChain!: ModifierChain;
-
   @Output() orderItemReady = new EventEmitter<OrderItem>();
   @Output() cancel = new EventEmitter<void>();
 
-  // Signal to hold the current raw selections (key: group.id, value: optionId or array of optionIds/number)
-  selectedOptions = signal<Record<string, string | string[] | number>>({});
+  // --- Internal State Signals ---
+  imagePath: Signal<string>;
+  selectedModifiers: WritableSignal<Selections> = signal({});
+  quantity = signal(1);
+  specialInstructions = signal('');
+
+  // --- Computed Price & Summary ---
   
-  // Computed Signal to calculate the final price
-  finalPrice = computed(() => {
+  // This signal calculates the price for a *single* item
+  singleItemPrice: Signal<number> = computed(() => {
     let price = this.product.cost;
-    const selections = this.selectedOptions();
+    const selections = this.selectedModifiers();
 
-    // Iterate through all modifier groups in the chain
+    // 1. Add Size adjustment
+    const sizeGroup = this.modifierChain.groups.find(g => g.id === 'size');
+    if (sizeGroup && selections['size']) {
+      const sizeId = selections['size'] as string;
+      const sizeOption = sizeGroup.options?.find(o => o.id === sizeId);
+      if (sizeOption) {
+        price += sizeOption.price_adjustment;
+      }
+    }
+
+    // 2. Add all other modifier adjustments
     for (const group of this.modifierChain.groups) {
-      const selectionValue = selections[group.id];
+      if (group.id === 'size' || !group.options) continue; // Skip size (done) and groups with no options
 
-      if (group.options) {
-        // Handle Single-Select and Multi-Select Options
-        const selectedIds = Array.isArray(selectionValue) ? selectionValue : (selectionValue ? [selectionValue] : []);
+      const selection = selections[group.id];
+      if (!selection) continue;
 
-        for (const optionId of selectedIds) {
-          const option = group.options.find(o => o.id === optionId);
-          if (option) {
-            price += option.price_adjustment;
-          }
+      const selectedIds = Array.isArray(selection) ? selection : [selection];
+      for (const optionId of selectedIds) {
+        const option = group.options.find(o => o.id === optionId);
+        if (option) {
+          price += option.price_adjustment;
         }
       }
     }
-    
-    // Price adjustment rules (size) are applied by using the appropriate option's price_adjustment
     return price;
   });
 
-  ngOnInit(): void {
-    // Set initial defaults when the component loads
-    this.setInitialDefaults();
-  }
-  
-  private setInitialDefaults(): void {
-      const defaults: Record<string, string | string[] | number> = {};
-      
-      for (const group of this.modifierChain.groups) {
-          if (group.default !== undefined) {
-              defaults[group.id] = group.default;
-          } else if (group.multi_select) {
-              defaults[group.id] = [];
-          } else if (group.type === 'range') {
-              // Range default is handled by the group.default property
-          }
+  // This signal calculates the total price (item price * quantity)
+  totalPrice: Signal<number> = computed(() => {
+    return this.singleItemPrice() * this.quantity();
+  });
+
+  // This signal creates the "Customizations:" summary list
+  customizationSummary: Signal<{ name: string, price: number }[]> = computed(() => {
+    const summary: { name: string, price: number }[] = [];
+    const selections = this.selectedModifiers();
+
+    for (const group of this.modifierChain.groups) {
+      if (!group.options) continue;
+
+      const selection = selections[group.id];
+      if (!selection) continue;
+
+      const selectedIds = Array.isArray(selection) ? selection : [selection];
+      for (const optionId of selectedIds) {
+        const option = group.options.find(o => o.id === optionId);
+        if (option) {
+          summary.push({ name: option.name, price: option.price_adjustment });
+        }
       }
-      this.selectedOptions.set(defaults);
-  }
-
-  // Method to handle updates from UI inputs (used by template)
-  updateSelection(groupId: string, event: Event, isMultiSelect: boolean = false): void {
-    const target = event.target as HTMLInputElement;
-    const value = target.value;
-    
-    if (isMultiSelect) {
-      this.selectedOptions.update(current => {
-          const currentSelections = (current[groupId] as string[] || []);
-          if (target.checked) {
-              return { ...current, [groupId]: [...currentSelections, value] };
-          } else {
-              return { ...current, [groupId]: currentSelections.filter(id => id !== value) };
-          }
-      });
-    } else if (target.type === 'range') {
-      this.selectedOptions.update(current => ({ 
-        ...current, 
-        [groupId]: target.valueAsNumber 
-      }));
-    } else {
-      // Single select (radio buttons)
-      this.selectedOptions.update(current => ({ 
-        ...current, 
-        [groupId]: value 
-      }));
     }
+    return summary;
+  });
+
+  constructor(private menuService: MenuService) {
+    this.imagePath = this.menuService.imagePath; // Get CDN path
   }
 
-  // Helper to format price adjustment for display
-  getAdjustment(adjustment: number): string {
-    if (adjustment === 0) return '';
-    return adjustment > 0 ? ` (+$${adjustment.toFixed(2)})` : ` (-$${Math.abs(adjustment).toFixed(2)})`;
+  ngOnInit() {
+    // Set default selections
+    const defaults: Selections = {};
+    for (const group of this.modifierChain.groups) {
+      if (group.default) {
+        defaults[group.id] = group.default as string;
+      }
+    }
+    this.selectedModifiers.set(defaults);
   }
-  
-  // Logic to finalize and submit the order item (TODO: Implement server call)
-  submitOrder(): void {
-      // Logic to transform selections into the required OrderItem/child_items format
-      const orderItem: OrderItem = {
-          product_id: this.product.chainproductid.toString(),
-          name: this.product.name,
-          category: 'drink', // Assuming based on modifier chains
-          size: this.selectedOptions()['size'] as string,
-          quantity: 1,
-          unit_price: this.finalPrice(),
-          child_items: [] // TODO: Logic to build child_items from this.selectedOptions()
-      };
-      
-      this.orderItemReady.emit(orderItem);
-      // In a later phase, this will call the AWS Service
+
+  // --- Modal Actions ---
+
+  close() {
+    this.cancel.emit();
+  }
+
+  // This is the main logic for selecting/deselecting an option
+  selectOption(group: ModifierGroup, option: ModifierOption) {
+    this.selectedModifiers.update(current => {
+      const newSelections = { ...current };
+      const currentSelection = newSelections[group.id];
+
+      if (group.multi_select) {
+        // Handle Checkbox logic
+        const currentArray = Array.isArray(currentSelection) ? currentSelection : [];
+        if (currentArray.includes(option.id)) {
+          // De-select
+          newSelections[group.id] = currentArray.filter(id => id !== option.id);
+        } else {
+          // Select
+          newSelections[group.id] = [...currentArray, option.id];
+        }
+      } else {
+        // Handle Radio button logic
+        newSelections[group.id] = option.id;
+      }
+      return newSelections;
+    });
+  }
+
+  // Check if an option is currently active
+  isSelected(groupId: string, optionId: string): boolean {
+    const selection = this.selectedModifiers()[groupId];
+    if (Array.isArray(selection)) {
+      return selection.includes(optionId);
+    }
+    return selection === optionId;
+  }
+
+  // Quantity controls
+  incQty() {
+    this.quantity.update(q => q + 1);
+  }
+  decQty() {
+    this.quantity.update(q => (q > 1 ? q - 1 : 1));
+  }
+
+  // Build and emit the final OrderItem
+  addToCart() {
+    const selections = this.selectedModifiers();
+    const size = (selections['size'] as string) || 'medium';
+
+    // Build the child_items array for the cart
+    const child_items: OrderItem['child_items'] = [];
+    this.customizationSummary().forEach(mod => {
+      // Find the group this modifier belongs to
+      const group = this.modifierChain.groups.find(g => g.options?.some(o => o.name === mod.name));
+      child_items.push({
+        name: mod.name,
+        item_type: 'modifier',
+        modifier_group: group?.id || 'unknown',
+        quantity: 1, // Modifiers are 1 per parent item
+        unit_price: mod.price
+      });
+    });
+
+    const orderItem: OrderItem = {
+      product_id: this.product.chainproductid.toString(),
+      name: this.product.name,
+      category: 'drink', // You might want to pass this in
+      size: size,
+      quantity: this.quantity(),
+      unit_price: this.singleItemPrice(), // Send the price for *one* item
+      child_items: child_items
+    };
+    
+    this.orderItemReady.emit(orderItem);
+  }
+
+  // Helper to get the correct product image for the modal
+  getProductImage(): string {
+    const defaultImage = this.imagePath() + this.product.imagefilename;
+    if (!this.product.images) {
+      return defaultImage;
+    }
+    // Try to find a high-res image, fall back to default
+    const largeImage = this.product.images.find(img => img.groupname === 'mobile-webapp-customize');
+    return largeImage ? this.imagePath() + largeImage.filename : defaultImage;
   }
 }

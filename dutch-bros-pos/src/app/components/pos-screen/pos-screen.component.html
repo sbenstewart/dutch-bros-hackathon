@@ -1,41 +1,101 @@
+<!-- Main POS Layout -->
 <div class="pos-container">
-  <header>
-    <h1>Dutch Bros POS System</h1>
-  </header>
+  
+  <!-- Column 1: Menu Panel -->
+  <main class="menu-panel">
+    <header class="menu-header">
+      <div class="menu-header-top">
+        <h1>Create Order</h1>
+        <input type="text" placeholder="Search menu items..." class="search-bar" />
+      </div>
+      
+      <!-- Category Tabs -->
+      <nav class="category-tabs">
+        <button *ngFor="let category of categories()"
+                [class.active]="category.id === selectedCategory()?.id"
+                (click)="selectCategory(category)">
+          {{ category.name }}
+        </button>
+      </nav>
+    </header>
 
-  <main class="pos-layout">
-    <div class="menu-selection-panel">
-      <h2>Menu Items</h2>
-      <div *ngFor="let product of availableProducts()" 
-           class="menu-item-button" 
+    <!-- Product Grid -->
+    <section class="product-grid" *ngIf="selectedCategory() as category">
+      <div *ngFor="let product of category.products" 
+           class="product-card"
            (click)="selectProduct(product)">
-        {{ product.name }} 
-        <span class="price">${{ product.cost.toFixed(2) }}</span>
+        
+        <!-- Use the image CDN path from the service -->
+        <img [src]="imagePath() + product.imagefilename" 
+             [alt]="product.name" 
+             class="product-image" />
+        <div class="product-info">
+          <span class="product-name">{{ product.name }}</span>
+          <span class="product-price">${{ product.cost.toFixed(2) }}</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Column 2: Order Panel (Cart) -->
+  <aside class="order-panel">
+    <header class="order-header">
+      <h2>Current Order ({{ currentOrder().length }})</h2>
+    </header>
+
+    <!-- Scrollable list of items in the cart -->
+    <div class="order-summary-scrollable">
+      <div *ngIf="currentOrder().length === 0" class="empty-cart">
+        Your order is empty.
+      </div>
+
+      <div *ngFor="let item of currentOrder()" class="order-item">
+        <div class="order-item-details">
+          <span class="item-name">{{ item.name }}</span>
+          <span class="item-modifiers">{{ formatModifiers(item) }}</span>
+        </div>
+        <div class="order-item-controls">
+          <button (click)="decrementQuantity(item.id!)" class="control-btn">-</button>
+          <span class="item-quantity">{{ item.quantity }}</span>
+          <button (click)="incrementQuantity(item.id!)" class="control-btn">+</button>
+        </div>
+        <span class="item-price">${{ (item.unit_price * item.quantity).toFixed(2) }}</span>
+        <button (click)="removeFromOrder(item.id!)" class="control-btn remove-btn">&times;</button>
       </div>
     </div>
 
-    <div class="center-panel">
-      <ng-container *ngIf="selectedProduct() && selectedProductModifiers() as modifiers">
-        <app-modifier-selector
-          [product]="selectedProduct()!"
-          [modifierChain]="modifiers"
-          (orderItemReady)="addToOrder($event)"
-          (cancel)="clearSelection()"
-        ></app-modifier-selector>
-      </ng-container>
+    <!-- Order Total and Checkout -->
+    <footer class="order-summary-footer">
+      <div class="price-line">
+        <span>Subtotal</span>
+        <span>${{ orderSubtotal().toFixed(2) }}</span>
+      </div>
+      <div class="price-line">
+        <span>Tax (8%)</span>
+        <span>${{ orderTax().toFixed(2) }}</span>
+      </div>
+      <div class="price-line total-line">
+        <span>Total</span>
+        <span>${{ orderTotal().toFixed(2) }}</span>
+      </div>
+      <button class="charge-button" [disabled]="currentOrder().length === 0">
+        Charge ${{ orderTotal().toFixed(2) }}
+      </button>
+    </footer>
+  </aside>
 
-      <ng-container *ngIf="!selectedProduct()">
-        <h2>Current Order (Total Items: {{ currentOrder().length }})</h2>
-        <div *ngIf="currentOrder().length === 0">Tap a menu item to begin.</div>
-        <ul>
-          <li *ngFor="let item of currentOrder()">
-            <strong>{{ item.size }} {{ item.name }}</strong> - ${{ item.unit_price.toFixed(2) }}
-            <span *ngIf="item.child_items.length > 0"> (+ {{ item.child_items.length }} mods)</span>
-          </li>
-        </ul>
-        <button *ngIf="currentOrder().length > 0">Finalize & Pay</button>
-      </ng-container>
-    </div>
+</div>
 
-  </main>
+<!-- 
+  Modifier Modal (Overlay) 
+  This appears on top of everything when a product is selected.
+-->
+<div class="modal-overlay" *ngIf="selectedProduct() && selectedProductModifiers() as modifiers">
+  <app-modifier-selector
+    class="modal-content"
+    [product]="selectedProduct()!"
+    [modifierChain]="modifiers"
+    (orderItemReady)="addToOrder($event)"
+    (cancel)="clearSelection()"
+  ></app-modifier-selector>
 </div>

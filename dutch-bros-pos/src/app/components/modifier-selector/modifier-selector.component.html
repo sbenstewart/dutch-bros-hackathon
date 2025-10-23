@@ -1,53 +1,87 @@
-<div class="customization-panel">
-  <h3>Customize: {{ product.name }}</h3>
+<header class="modal-header">
+  <div class="header-text">
+    <h2>{{ product.name }}</h2>
+    <p>{{ product.description }}</p>
+  </div>
+  <button class="close-btn" (click)="close()">&times;</button>
+</header>
 
-  <div class="price-display">
-    Total Price: <strong>$ {{ finalPrice().toFixed(2) }}</strong>
+<div class="modal-body">
+  <div class="modal-image-container">
+    <img [src]="getProductImage()" [alt]="product.name" class="modal-image" />
+  </div>
+  
+  <!-- Loop through modifier groups -->
+  <div *ngFor="let group of modifierChain.groups" class="modifier-group">
+    <h3>
+      {{ group.name }}
+      <span *ngIf="group.required" class="required-star"> *</span>
+    </h3>
+
+    <!-- Grid for options -->
+    <div class="options-grid" [class.grid-2]="group.options && group.options.length > 2">
+      <button *ngFor="let option of group.options"
+              class="modifier-option"
+              [class.active]="isSelected(group.id, option.id)"
+              (click)="selectOption(group, option)">
+        <span>{{ option.name }}</span>
+        <span *ngIf="option.price_adjustment > 0" class="mod-price">+${{ option.price_adjustment.toFixed(2) }}</span>
+        <span *ngIf="option.price_adjustment < 0" class="mod-price">-${{ (option.price_adjustment * -1).toFixed(2) }}</span>
+      </button>
+    </div>
+
+    <!-- Handle Range/Sweetness -->
+    <div *ngIf="group.type === 'range'" class="range-slider">
+      <input
+        type="range"
+        [min]="group.min"
+        [max]="group.max"
+        [step]="group.step"
+        [value]="selectedModifiers()[group.id] || group.default"
+        (input)="selectOption(group, { id: ($any($event.target).value), name: '', price_adjustment: 0 })"
+      />
+      <p>Current: **{{ selectedModifiers()[group.id] || group.default }} {{ group.label }}**</p>
+    </div>
   </div>
 
-  <form>
-    <div *ngFor="let group of modifierChain.groups" class="modifier-group">
-      <h4>
-        {{ group.name }}
-        <span *ngIf="group.required" class="required">(Required)</span>
-      </h4>
-
-      <div *ngIf="group.options">
-        <div *ngFor="let option of group.options">
-          <input
-            [type]="group.multi_select ? 'checkbox' : 'radio'"
-            [name]="group.id"
-            [id]="group.id + '-' + option.id"
-            [value]="option.id"
-            [checked]="!group.multi_select && selectedOptions()[group.id] === option.id"
-            (change)="updateSelection(group.id, $event, !!group.multi_select)"
-          />
-          <label [for]="group.id + '-' + option.id">
-            {{ option.name }}{{ getAdjustment(option.price_adjustment) }}
-            <span *ngIf="option.dairy_free" class="dairy-free">[DF]</span>
-          </label>
-        </div>
-      </div>
-
-      <div *ngIf="group.type === 'range'">
-        <input
-          type="range"
-          [min]="group.min"
-          [max]="group.max"
-          [step]="group.step"
-          [value]="selectedOptions()[group.id] || group.default"
-          (input)="updateSelection(group.id, $event, false)"
-        />
-        <p>Current {{ group.name }}: **{{ selectedOptions()[group.id] || group.default }} {{ group.label }}**</p>
-      </div>
-      
-      <div *ngIf="group.type === 'info'" class="modifier-info">
-          {{ group.message }}
-      </div>
+  <!-- Quantity Stepper -->
+  <div class="modifier-group">
+    <h3>Quantity</h3>
+    <div class="quantity-stepper">
+      <button (click)="decQty()" [disabled]="quantity() === 1">-</button>
+      <span>{{ quantity() }}</span>
+      <button (click)="incQty()">+</button>
     </div>
-  </form>
+  </div>
 
-  <button (click)="submitOrder()">Add to Order</button>
-  <button (click)="cancel.emit()">Cancel</button>
+  <!-- Special Instructions -->
+  <div class="modifier-group">
+    <h3>Special Instructions</h3>
+    <textarea placeholder="Any special requests or allergens..."></textarea>
+  </div>
+
+  <!-- Customizations Summary -->
+  <div class="modifier-group summary-group">
+    <h3>Customizations:</h3>
+    <ul class="summary-list">
+      <li *ngFor="let mod of customizationSummary()">
+        <span>+ {{ mod.name }}</span>
+        <span>{{ mod.price > 0 ? '+$' + mod.price.toFixed(2) : (mod.price < 0 ? '-$' + (mod.price * -1).toFixed(2) : ' ') }}</span>
+      </li>
+    </ul>
+  </div>
 
 </div>
+
+<footer class="modal-footer">
+  <div class="total-section">
+    <span class="total-label">Total</span>
+    <span class="total-price">${{ totalPrice().toFixed(2) }}</span>
+    <span class="total-each" *ngIf="quantity() > 1">
+      ${{ singleItemPrice().toFixed(2) }} each &times; {{ quantity() }}
+    </span>
+  </div>
+  <button class="add-to-cart-btn" (click)="addToCart()">
+    Add to Cart
+  </button>
+</footer>

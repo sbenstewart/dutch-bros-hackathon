@@ -1,3 +1,5 @@
+// src/app/models/menu.model.ts
+
 // Base structure for a Product from menu.json
 export interface Product {
   chainproductid: number;
@@ -5,6 +7,7 @@ export interface Product {
   cost: number; // base price
   description?: string;
   imagefilename?: string;
+  images?: { groupname: string; filename: string; isdefault?: boolean; }[];
   // Simplified version of the full properties from menu.json
 }
 
@@ -53,8 +56,8 @@ export interface ModifiersData {
   default_chain: string;
 }
 
-// Model for a single item added to the running order (similar to QUICK_START example)
 export interface OrderItem {
+  id?: string; // <-- ADD THIS LINE (Unique ID for cart management)
   product_id: string; // string version of chainproductid
   name: string;
   category: string;
