@@ -1,0 +1,16 @@
+<div class="notification-container">
+  <div *ngFor="let notification of notifications; trackBy: trackById" 
+       [class]="'notification notification-' + notification.priority + (notification.dismissed ? ' dismissed' : '')"
+       (click)="dismissNotification(notification.id)">
+    
+    <div class="notification-content">
+      <span class="notification-title">{{ notification.title }}</span>
+      <p class="notification-message">{{ notification.message }}</p>
+    </div>
+    
+    <button class="close-btn" 
+            (click)="dismissNotification(notification.id); $event.stopPropagation()">
+      ×
+    </button>
+  </div>
+</div>

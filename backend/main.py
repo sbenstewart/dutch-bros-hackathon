@@ -1,54 +1,48 @@
 import os
-import boto3  # Used by the streaming library for credentials
+import boto3
 import uvicorn
-import asyncio  # Used heavily for streaming
-import httpx  # For making HTTP requests to Dutch Bros API
+import asyncio
+import httpx
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, time
 import uuid
 from dotenv import load_dotenv
 
-# Import the AWS Transcribe Streaming SDK from the 'amazon-transcribe' package
+# Import the AWS Transcribe Streaming SDK
 from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
 
+# Import notification service
+from notification_service import NotificationService, Notification, NotificationType, NotificationPriority
+
 # --- Configuration ---
-# Load environment variables from .env file
 load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION")
 
-# Dutch Bros POS API Configuration
 DUTCH_BROS_API_BASE_URL = os.getenv("DUTCH_BROS_API_BASE_URL", "https://pos-api.example.com/v1")
 DUTCH_BROS_API_KEY = os.getenv("DUTCH_BROS_API_KEY")
 
-# Basic validation
 if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION]):
     print("--------------------------------------------------")
     print("FATAL ERROR: Missing AWS configuration in .env file.")
-    print("Please make sure your backend/.env file is correct.")
     print("--------------------------------------------------")
-    # In a real app, you'd exit here
-    # exit(1)
 
 if not DUTCH_BROS_API_KEY:
     print("--------------------------------------------------")
     print("WARNING: Missing DUTCH_BROS_API_KEY in .env file.")
-    print("Order submission to backend API will not work.")
     print("--------------------------------------------------")
 
 # --- FastAPI App ---
 app = FastAPI()
 
 # --- CORS Middleware ---
-# This allows your Angular app (running on localhost:4200)
-# to connect to this backend (running on localhost:8000)
 origins = [
     "http://localhost:4200",
 ]
@@ -57,12 +51,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
+# --- Global State ---
+notification_service = NotificationService()
+simulated_time: Optional[datetime] = None
+active_notification_websockets: List[WebSocket] = []
 
-# --- Order Models ---
+# --- Models ---
 class OrderItem(BaseModel):
     product_id: str
     name: str
@@ -83,25 +81,233 @@ class OrderResponse(BaseModel):
     order_id: str
     timestamp: str
 
+class SetTimeRequest(BaseModel):
+    time: str  # Format: "HH:MM"
+
+# --- Helper Functions ---
+def get_current_time() -> datetime:
+    """Get current time (simulated or real)"""
+    if simulated_time:
+        return simulated_time
+    return datetime.now()
+
+async def broadcast_notification(notification: Notification):
+    """Send notification to all connected WebSocket clients"""
+    notification_data = notification.to_dict()
+    print(f"📢 Broadcasting notification: {notification.title}")
+    
+    disconnected = []
+    for ws in active_notification_websockets:
+        try:
+            await ws.send_json(notification_data)
+        except Exception as e:
+            print(f"Failed to send to client: {e}")
+            disconnected.append(ws)
+    
+    # Remove disconnected clients
+    for ws in disconnected:
+        active_notification_websockets.remove(ws)
+
+def check_and_generate_notifications(current_time: datetime):
+    """Check time and generate appropriate notifications"""
+    hour = current_time.hour
+    
+    # Morning rush approaching (6 AM)
+    if hour == 6:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.PEAK_APPROACHING,
+            priority=NotificationPriority.HIGH,
+            title="⚠️ Morning Rush Approaching",
+            message="Peak hours (7:00-10:00 AM) begin soon. Prepare stations!",
+            timestamp=current_time,
+            action="prep_rush"
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    # Morning peak active (7-10 AM)
+    elif hour >= 7 and hour < 10:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.PEAK_ACTIVE,
+            priority=NotificationPriority.MEDIUM,
+            title="🔥 Morning Peak Active",
+            message=f"Currently in morning peak (7:00-10:00 AM). High volume expected.",
+            timestamp=current_time
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    # Lunch rush approaching (11 AM)
+    elif hour == 11:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.PEAK_APPROACHING,
+            priority=NotificationPriority.HIGH,
+            title="⚠️ Lunch Rush Approaching",
+            message="Lunch peak (12:00-2:00 PM) begins soon. Restock popular items!",
+            timestamp=current_time,
+            action="prep_rush"
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    # Afternoon slow period (2-4 PM)
+    elif hour >= 14 and hour < 16:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.CLEANING_TIME,
+            priority=NotificationPriority.LOW,
+            title="🧹 Slow Period - Cleaning Time",
+            message="Low traffic period. Good time for cleaning and restocking.",
+            timestamp=current_time,
+            action="start_cleaning"
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    # Evening rush prep (5 PM)
+    elif hour == 17:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.RESTOCK,
+            priority=NotificationPriority.MEDIUM,
+            title="📦 Restock Before Evening Rush",
+            message="Evening peak (7:00-10:00 PM) approaching. Restock popular items!",
+            timestamp=current_time,
+            action="restock"
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    # Evening rush active (7-10 PM)
+    elif hour >= 19 and hour < 22:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.EVENING_RUSH,
+            priority=NotificationPriority.HIGH,
+            title="🌙 Evening Rush Active",
+            message="Peak evening hours (7:00-10:00 PM). Expect high volume.",
+            timestamp=current_time,
+            action="evening_prep"
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    # Closing time (10 PM)
+    elif hour == 22:
+        notif = Notification(
+            notification_id=notification_service.generate_notification_id(),
+            type=NotificationType.CLOSING_TIME,
+            priority=NotificationPriority.HIGH,
+            title="🔒 Closing Time",
+            message="Begin closing procedures. Clean equipment and prep for tomorrow.",
+            timestamp=current_time,
+            action="start_closing"
+        )
+        notification_service.add_notification(notif)
+        return notif
+    
+    return None
+
+# --- Time API Endpoints ---
+@app.post("/api/time/set")
+async def set_time(request: SetTimeRequest):
+    """Set simulated time"""
+    global simulated_time
+    
+    try:
+        # Parse time string (HH:MM)
+        time_parts = request.time.split(":")
+        hour = int(time_parts[0])
+        minute = int(time_parts[1])
+        
+        # Create datetime with today's date but specified time
+        now = datetime.now()
+        simulated_time = datetime(now.year, now.month, now.day, hour, minute)
+        
+        print(f"⏰ Time set to: {simulated_time.strftime('%H:%M')}")
+        
+        # Check if we should generate notifications for this time
+        notification = check_and_generate_notifications(simulated_time)
+        if notification:
+            await broadcast_notification(notification)
+        
+        return {
+            "status": "success",
+            "time": simulated_time.strftime("%H:%M"),
+            "message": f"Time set to {request.time}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid time format: {str(e)}")
+
+@app.post("/api/time/reset")
+async def reset_time():
+    """Reset to real time"""
+    global simulated_time
+    simulated_time = None
+    
+    print("⏰ Time reset to real time")
+    
+    return {
+        "status": "success",
+        "message": "Time reset to current time"
+    }
+
+@app.get("/api/time/current")
+async def get_current_time_api():
+    """Get current (simulated or real) time"""
+    current = get_current_time()
+    return {
+        "time": current.strftime("%H:%M"),
+        "is_simulated": simulated_time is not None,
+        "timestamp": current.isoformat()
+    }
+
+# --- Notification WebSocket ---
+@app.websocket("/ws/notifications")
+async def websocket_notifications(websocket: WebSocket):
+    """WebSocket endpoint for real-time notifications"""
+    await websocket.accept()
+    active_notification_websockets.append(websocket)
+    
+    print(f"🔌 Notification client connected. Total clients: {len(active_notification_websockets)}")
+    
+    try:
+        # Send any existing active notifications
+        for notification in notification_service.get_active_notifications():
+            await websocket.send_json(notification)
+        
+        # Keep connection alive and listen for client messages
+        while True:
+            data = await websocket.receive_json()
+            
+            # Handle dismiss action
+            if data.get("action") == "dismiss":
+                notification_id = data.get("notification_id")
+                if notification_id:
+                    notification_service.dismiss_notification(notification_id)
+                    print(f"❌ Dismissed notification: {notification_id}")
+    
+    except WebSocketDisconnect:
+        print(f"🔌 Notification client disconnected")
+    except Exception as e:
+        print(f"Notification WebSocket error: {e}")
+    finally:
+        if websocket in active_notification_websockets:
+            active_notification_websockets.remove(websocket)
+        print(f"🔌 Total clients: {len(active_notification_websockets)}")
 
 # --- Order Endpoint ---
 @app.post("/submit-order", response_model=OrderResponse)
 async def submit_order(order: SubmitOrderRequest):
-    """
-    Submit a new order to the Dutch Bros POS system.
-    
-    This endpoint accepts customer name and order items,
-    forwards them to the Dutch Bros backend API, and returns confirmation.
-    """
+    """Submit a new order to the Dutch Bros POS system"""
     try:
-        # Prepare order data in the format expected by Dutch Bros API
-        # Following the structure from python.py example
         order_items = []
         for item in order.items:
-            # Build modifiers dictionary from child_items
             modifiers = {}
             for mod in item.child_items:
-                # Use modifier group as key and modifier name as value
                 modifiers[mod['modifier_group']] = mod['name']
             
             order_items.append({
@@ -121,19 +327,16 @@ async def submit_order(order: SubmitOrderRequest):
         if order.notes:
             api_payload["notes"] = order.notes
         
-        # Log the order locally
         print(f"\n{'='*60}")
         print(f"SUBMITTING ORDER TO DUTCH BROS API")
         print(f"{'='*60}")
         print(f"Customer: {order.customer_name}")
         print(f"Items: {len(order.items)}")
         
-        # Log the complete request body
-        print(f"\nRequest Body:")
         import json
+        print(f"\nRequest Body:")
         print(json.dumps(api_payload, indent=2))
         
-        # Make API call to Dutch Bros backend
         headers = {
             "Content-Type": "application/json",
             "x-api-key": DUTCH_BROS_API_KEY,
@@ -164,7 +367,6 @@ async def submit_order(order: SubmitOrderRequest):
                 timestamp=datetime.now().isoformat()
             )
         else:
-            # API call failed
             error_detail = response.json() if response.text else {"error": "Unknown error"}
             error_message = error_detail.get('error', {}).get('message', response.text)
             print(f"✗ API Error ({response.status_code}): {error_message}")
@@ -175,157 +377,106 @@ async def submit_order(order: SubmitOrderRequest):
             )
         
     except httpx.RequestError as e:
-        print(f"✗ Network error connecting to Dutch Bros API: {e}")
+        print(f"✗ Network error: {e}")
         print(f"{'='*60}\n")
         raise HTTPException(
             status_code=503,
             detail=f"Failed to connect to Dutch Bros API: {str(e)}"
         )
     except Exception as e:
-        print(f"✗ Error processing order: {e}")
+        print(f"✗ Error: {e}")
         print(f"{'='*60}\n")
         raise HTTPException(status_code=500, detail=f"Failed to process order: {str(e)}")
 
 
 # --- WebSocket Audio Stream ---
-# This async generator will read from an asyncio.Queue
-# and feed audio chunks into the AWS Transcribe stream.
-# This queue acts as a buffer between your Angular app and AWS.
 async def audio_stream_generator(audio_queue: asyncio.Queue):
-    """
-    Pulls audio chunks from the queue and yields them to the AWS stream.
-    """
+    """Pulls audio chunks from the queue and yields them to the AWS stream"""
     while True:
         try:
-            # Get a chunk of audio from the queue
-            # (put there by the client WebSocket)
             chunk = await audio_queue.get()
             if chunk is None:
-                break  # Signal to end the stream
+                break
             yield chunk
         except Exception as e:
             print(f"Error in audio stream generator: {e}")
             break
 
 
-# --- Custom Transcript Handler ---
-# This class will handle the transcript events coming back from AWS
-# and send them over our client-facing WebSocket (to Angular).
 class MyTranscriptHandler(TranscriptResultStreamHandler):
-    """
-    Handles the transcript events from AWS and sends them to the client.
-    """
+    """Handles the transcript events from AWS and sends them to the client"""
 
     def __init__(self, transcript_result_stream, client_websocket: WebSocket):
         super().__init__(transcript_result_stream)
         self.client_websocket = client_websocket
 
     async def handle_transcript_event(self, transcript_event: TranscriptEvent):
-        # This is called every time AWS sends us a new transcript event
         results = transcript_event.transcript.results
 
-        # !!! FIX 1: Loop through ALL results in the event !!!
-        # This fixes the "all at once" bug.
         if results:
             for result in results:
-                if result.alternatives:  # Make sure there are alternatives
+                if result.alternatives:
                     alt = result.alternatives[0]
                     transcript_text = alt.transcript
 
                     if not result.is_partial:
-                        # We have a "final" segment
                         await self.client_websocket.send_json(
                             {"status": "FINAL_SEGMENT", "transcript": transcript_text}
                         )
                     else:
-                        # We have a "partial" (interim) segment
                         await self.client_websocket.send_json(
                             {"status": "PARTIAL_SEGMENT", "transcript": transcript_text}
                         )
 
 
-# --- Live Transcription WebSocket Endpoint ---
 @app.websocket("/ws/transcribe-live")
 async def websocket_transcribe_live(websocket: WebSocket):
-    """
-    Handles a live audio stream from the client for transcription.
-    1. Receives audio chunks (raw PCM) from the client.
-    2. Forwards them to AWS Transcribe Streaming.
-    3. Receives transcript segments from AWS.
-    4. Forwards them back to the client.
-    """
+    """Handles a live audio stream from the client for transcription"""
     await websocket.accept()
-    print("INFO:     connection open")
+    print("INFO:     transcription connection open")
 
-    # This queue will act as a buffer between the client and AWS
     audio_queue = asyncio.Queue()
 
     try:
-        # 1. Configure the AWS Transcribe Streaming Client
-        #    (FIX: Use 'region', not 'region_name')
         transcribe_client = TranscribeStreamingClient(region=AWS_REGION)
 
-        # 2. Start the transcription stream
-        #    (FIX: Do NOT pass 'input_event_stream' here)
         stream = await transcribe_client.start_stream_transcription(
             language_code="en-US",
-            # CRITICAL: The audio from Angular MUST be 16000Hz
             media_sample_rate_hz=16000,
-            # CRITICAL: The audio from Angular MUST be raw PCM
             media_encoding="pcm",
         )
 
-        # 3. Instantiate our custom handler to process results
         handler = MyTranscriptHandler(stream.output_stream, websocket)
 
-        # 4. Run three tasks at the same time:
-        #    - Task 1: read_from_client: Reads audio from Angular and puts it in the queue
-        #    - Task 2: write_to_aws: Reads from queue and sends to AWS
-        #    - Task 3: aws_handler_task: Reads results from AWS (via the handler) and sends to Angular
-
         async def read_from_client():
-            """
-            Task 1: Reads audio bytes from the client WebSocket and puts them in the queue.
-            """
             while True:
                 try:
-                    # Get raw audio data from the client
                     data = await websocket.receive_bytes()
                     await audio_queue.put(data)
                 except WebSocketDisconnect:
                     print("Client disconnected.")
-                    await audio_queue.put(None)  # Signal end to generator
+                    await audio_queue.put(None)
                     break
                 except Exception as e:
                     print(f"Error reading from client: {e}")
-                    await audio_queue.put(None)  # Signal end
+                    await audio_queue.put(None)
                     break
 
         async def write_to_aws(aws_stream, audio_queue: asyncio.Queue):
-            """
-            Task 2: Takes audio from the queue and sends it to AWS.
-            """
-            # Use the generator you already wrote!
             stream_generator = audio_stream_generator(audio_queue)
             try:
                 async for chunk in stream_generator:
-                    # Send the audio chunk to AWS
                     await aws_stream.input_stream.send_audio_event(audio_chunk=chunk)
             except Exception as e:
                 print(f"Error writing to AWS stream: {e}")
             finally:
-                # Once the generator is done, tell AWS we are done sending audio
                 await aws_stream.input_stream.end_stream()
                 print("AWS audio stream ended.")
 
-        # Task 3: Reads results from AWS and sends them to Angular
         aws_handler_task = asyncio.create_task(handler.handle_events())
-
-        # Start tasks 1 and 2
         client_reader_task = asyncio.create_task(read_from_client())
         aws_writer_task = asyncio.create_task(write_to_aws(stream, audio_queue))
 
-        # Wait for all three tasks to complete
         await asyncio.gather(client_reader_task, aws_handler_task, aws_writer_task)
 
     except WebSocketDisconnect:
@@ -333,19 +484,17 @@ async def websocket_transcribe_live(websocket: WebSocket):
     except Exception as e:
         print(f"Live transcription error: {e}")
         try:
-            # Try to send a clean error message to the client
             await websocket.send_json({"status": "ERROR", "detail": str(e)})
         except:
-            pass  # Client might be gone
+            pass
     finally:
-        # !!! FIX 2: Catch the "already closed" error !!!
         try:
             await websocket.close()
         except RuntimeError as e:
             if "already completed" in str(e) or "websocket.close" in str(e):
-                pass  # Ignore "already closed" errors
+                pass
             else:
-                raise e  # Re-raise other runtime errors
+                raise e
         print("Live transcription websocket closed.")
 
 
@@ -353,4 +502,6 @@ async def websocket_transcribe_live(websocket: WebSocket):
 if __name__ == "__main__":
     print("Starting local backend server at http://localhost:8000")
     print(f"Using AWS Region: {AWS_REGION}")
+    print("📢 Notification service initialized")
+    print("⏰ Time simulation ready")
     uvicorn.run(app, host="0.0.0.0", port=8000)

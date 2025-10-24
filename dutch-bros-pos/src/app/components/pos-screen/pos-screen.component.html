@@ -1,3 +1,19 @@
+<!-- Time Slider Bar -->
+<div class="time-control-bar">
+  <div class="time-slider-container">
+    <label class="time-label">⏰ Simulate Time:</label>
+    <input 
+      type="range" 
+      min="0" 
+      max="1439" 
+      [value]="currentMinutes()"
+      (input)="onTimeSliderChange($event)"
+      class="time-slider">
+    <span class="time-display">{{ displayTime() }}</span>
+    <button (click)="resetTime()" class="reset-btn">Reset</button>
+  </div>
+</div>
+
 <!-- Main POS Layout with Tabs -->
 <div class="pos-layout">
 
