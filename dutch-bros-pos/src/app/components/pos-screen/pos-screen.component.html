@@ -1,5 +1,38 @@
-<!-- Main POS Layout with Tabs -->
-<div class="pos-layout">
+<!-- Main POS Layout -->
+ <!-- Time Slider Bar -->
+<div class="time-control-bar">
+  <div class="time-slider-container">
+    <label class="time-label"> Simulate Time:</label>
+    <input 
+      type="range" 
+      min="0" 
+      max="1439" 
+      [value]="currentMinutes()"
+      (input)="onTimeSliderChange($event)"
+      class="time-slider">
+    <span class="time-display">{{ displayTime() }}</span>
+    <button (click)="resetTime()" class="reset-btn">Reset</button>
+  </div>
+</div>
+<div class="pos-container">
+  
+  <!-- Column 1: Menu Panel -->
+  <main class="menu-panel">
+    <header class="menu-header">
+      <div class="menu-header-top">
+        <h1>Create Order</h1>
+        <input type="text" placeholder="Search menu items..." class="search-bar" />
+      </div>
+      
+      <!-- Category Tabs -->
+      <nav class="category-tabs">
+        <button *ngFor="let category of categories()"
+                [class.active]="category.id === selectedCategory()?.id"
+                (click)="selectCategory(category)">
+          {{ category.name }}
+        </button>
+      </nav>
+    </header>
 
   <!-- Main Navigation Tabs -->
   <nav class="main-nav">

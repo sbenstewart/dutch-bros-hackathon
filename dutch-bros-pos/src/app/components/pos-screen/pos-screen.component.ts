@@ -11,7 +11,7 @@ import { FilterProductsPipe } from './filter-products.pipe';
 @Component({
   selector: 'app-pos-screen',
   templateUrl: './pos-screen.component.html',
-  styleUrls: ['./pos-screen.component.css'], // We will add this CSS file
+  styleUrls: ['./pos-screen.component.css'],
   standalone: true,
   imports: [CommonModule, FormsModule, ModifierSelectorComponent, TranscriptionComponent, FilterProductsPipe]
 })
@@ -24,6 +24,10 @@ export class PosScreenComponent implements OnInit {
   // --- STATE FOR TABS ---
   activeTab = signal<'menu' | 'cart' | 'transcription'>('menu');
 
+  // --- TIME SLIDER STATE ---
+  currentMinutes = signal<number>(540); // 9:00 AM default
+  displayTime = signal<string>('09:00');
+  
   // --- STATE FOR MENU ---
   categories: Signal<Category[]>;
   imagePath: Signal<string>;
@@ -49,7 +53,6 @@ export class PosScreenComponent implements OnInit {
   cartItemSelections: { [key: string]: string | string[] } | undefined;
   editingCartItemId: string | undefined;
   
-  // Computed totals based on the cart (like in the screenshot)
   orderSubtotal = computed(() => {
     return this.currentOrder().reduce((total, item) => {
       const price = item.unit_price || 0;
@@ -59,7 +62,7 @@ export class PosScreenComponent implements OnInit {
   });
   
   orderTax = computed(() => {
-    return this.orderSubtotal() * 0.08; // Example 8% tax rate
+    return this.orderSubtotal() * 0.08;
   });
 
   orderTotal = computed(() => {
@@ -73,11 +76,63 @@ export class PosScreenComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Select the first category by default when data is ready
     const firstCategory = computed(() => this.categories()[0]);
     if (firstCategory()) {
       this.selectCategory(firstCategory());
     }
+    
+    // Initialize time
+    const now = new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    this.currentMinutes.set(minutes);
+    this.displayTime.set(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+  }
+  
+  // --- TIME SLIDER METHODS ---
+  onTimeSliderChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const minutes = parseInt(input.value);
+    this.currentMinutes.set(minutes);
+    
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const timeString = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    this.displayTime.set(timeString);
+    
+    // Debounce the API call
+    this.setTimeDebounced(timeString);
+  }
+
+  private timeoutId: any;
+  private setTimeDebounced(time: string): void {
+    clearTimeout(this.timeoutId);
+    this.timeoutId = setTimeout(() => {
+      this.setTime(time);
+    }, 500); // Wait 500ms after user stops sliding
+  }
+
+  setTime(time: string): void {
+    fetch('http://localhost:8000/api/time/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ time })
+    })
+    .then(res => res.json())
+    .then(data => console.log('✅ Time set:', data))
+    .catch(err => console.error('❌ Error setting time:', err));
+  }
+
+  resetTime(): void {
+    fetch('http://localhost:8000/api/time/reset', { method: 'POST' })
+    .then(res => res.json())
+    .then(data => {
+      console.log('✅ Time reset:', data);
+      const now = new Date();
+      const minutes = now.getHours() * 60 + now.getMinutes();
+      this.currentMinutes.set(minutes);
+      this.displayTime.set(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+    })
+    .catch(err => console.error('❌ Error resetting time:', err));
   }
 
   // --- TAB NAVIGATION ---
@@ -96,7 +151,6 @@ export class PosScreenComponent implements OnInit {
     this.clearSelection(); 
   }
 
-  // Click on a product card now *sets* the product, which opens the modal
   selectProduct(product: Product): void {
     this.selectedProduct.set(product);
     this.modalQuantity.set(1);
@@ -104,7 +158,6 @@ export class PosScreenComponent implements OnInit {
     this.cartItemSelections = undefined;
   }
 
-  // Called from modal to close it
   clearSelection(): void {
     this.selectedProduct.set(undefined);
     this.cartItemSelections = undefined;
@@ -157,7 +210,6 @@ export class PosScreenComponent implements OnInit {
     );
   }
 
-  // Helper function to display modifiers cleanly in the cart
   formatModifiers(item: OrderItem): string {
     const mods = item.child_items.map(mod => mod.name);
     return [...mods].join(', ');
