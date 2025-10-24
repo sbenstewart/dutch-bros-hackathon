@@ -20,6 +20,7 @@ export class ModifierSelectorComponent implements OnInit, OnChanges {
   @Input() initialSelections?: Selections;
   @Input() editingCartItemId?: string;
   @Input() quantityFromCart?: number;
+  @Input() autoSubmit?: boolean; // When true, auto-emits after initializing selections
   @Output() orderItemReady = new EventEmitter<OrderItem>();
   @Output() modifyItem = new EventEmitter<OrderItem>();
   @Output() cancel = new EventEmitter<void>();
@@ -96,6 +97,8 @@ export class ModifierSelectorComponent implements OnInit, OnChanges {
     this.imagePath = this.menuService.imagePath; // Get CDN path
   }
 
+  private didAutoSubmit = false;
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['quantityFromCart'] && changes['quantityFromCart'].currentValue !== undefined) {
       this.quantity.set(changes['quantityFromCart'].currentValue);
@@ -111,6 +114,18 @@ export class ModifierSelectorComponent implements OnInit, OnChanges {
         }
       }
       this.selectedModifiers.set(defaults);
+    }
+
+    // If autoSubmit is requested, trigger it once after selections are ready
+    if (this.autoSubmit && !this.didAutoSubmit) {
+      // Defer to allow bindings/signals to settle
+      setTimeout(() => {
+        // Guard again in case component unmounted
+        if (this.autoSubmit && !this.didAutoSubmit) {
+          this.didAutoSubmit = true;
+          this.addToCart();
+        }
+      }, 0);
     }
   }
 

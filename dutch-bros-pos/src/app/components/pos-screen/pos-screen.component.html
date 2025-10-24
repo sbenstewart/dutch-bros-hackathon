@@ -180,6 +180,7 @@
     [initialSelections]="cartItemSelections"
     [editingCartItemId]="editingCartItemId"
     [quantityFromCart]="modalQuantity()"
+    [autoSubmit]="autoSubmitModal"
     (orderItemReady)="addToOrder($event)"
     (modifyItem)="modifyExistingItem($event)"
     (cancel)="clearSelection()"

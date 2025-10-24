@@ -56,6 +56,8 @@ export class PosScreenComponent implements OnInit {
     // --- STATE FOR CART ITEM EDITING ---
   cartItemSelections: { [key: string]: string | string[] } | undefined;
   editingCartItemId: string | undefined;
+  autoSubmitModal: boolean = false; // when true, the modifier modal will auto-submit once
+  private pendingModalResolve?: () => void; // resolves when modal emits and cart updates
   
   orderSubtotal = computed(() => {
     return this.currentOrder().reduce((total, item) => {
@@ -171,8 +173,15 @@ export class PosScreenComponent implements OnInit {
   // --- ORDER PANEL (CART) METHODS ---
   
     addToOrder(item: OrderItem): void {
+      // Reset auto-submit flag once an item is produced
+      this.autoSubmitModal = false;
       // Delegate to unified add/merge logic
       this.addOrMergeItem(item);
+      // Resolve pending modal promise if any
+      if (this.pendingModalResolve) {
+        this.pendingModalResolve();
+        this.pendingModalResolve = undefined;
+      }
     }
 
     modifyExistingItem(item: OrderItem): void {
@@ -229,6 +238,16 @@ export class PosScreenComponent implements OnInit {
       if (modifierChain) {
         item.child_items.forEach(mod => {
           const group = modifierChain.groups.find(g => g.id === mod.modifier_group);
+          // Handle range types (like sweetness)
+          if (group?.type === 'range') {
+             // Extract number from '5 pumps'
+             const value = mod.name.match(/\d+/)?.[0];
+             if (value) {
+                selections[mod.modifier_group] = value;
+             }
+             return;
+          }
+          // Handle option types
           const option = group?.options?.find(o => o.name === mod.name);
           if (!option) return;
           if (group?.multi_select) {
@@ -398,6 +417,17 @@ export class PosScreenComponent implements OnInit {
     return undefined;
   }
 
+  // Helper: open the modifier modal with selections and optionally auto-submit
+  private openModifierModalForProduct(product: Product, selections: { [key: string]: string | string[] }, quantity: number, autoSubmit: boolean = true): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.pendingModalResolve = resolve;
+      this.selectedProduct.set(product);
+      this.cartItemSelections = selections;
+      this.modalQuantity.set(Math.max(1, quantity || 1));
+      this.autoSubmitModal = autoSubmit;
+    });
+  }
+
   // Public API: add an array of recognized items with animation and auto-scroll
   async addItemsSequentially(items: Array<{ product_hint: string; quantity?: number; size?: string; temperature?: string; modifiers?: string[] }>, delayMs: number = 600): Promise<void> {
     if (!items?.length) return;
@@ -413,38 +443,18 @@ export class PosScreenComponent implements OnInit {
 
         const chain = this.menuService.getModifierChain(product.chainproductid.toString())();
         const selections: { [key: string]: string | string[] } = {};
-        const child_items: OrderItem['child_items'] = [];
-        let price = product.cost;
-        let sizeName = 'medium'; // default
 
         if (chain) {
           // size
           const sizeSel = this.findSizeOption(chain, rec.size);
           if (sizeSel) {
             selections['size'] = sizeSel.optionId;
-            sizeName = sizeSel.optionName.toLowerCase();
-            price += sizeSel.price;
-            child_items.push({ name: sizeSel.optionName, item_type: 'modifier', modifier_group: 'size', quantity: 1, unit_price: sizeSel.price });
-          } else if (!rec.size) {
-            // No size hint provided; try to use the default from chain
-            const sizeGroup = chain.groups.find(g => g.id === 'size');
-            if (sizeGroup && sizeGroup.default) {
-              const defaultOpt = sizeGroup.options?.find(o => o.id === sizeGroup.default);
-              if (defaultOpt) {
-                selections['size'] = defaultOpt.id;
-                sizeName = defaultOpt.name.toLowerCase();
-                price += defaultOpt.price_adjustment;
-                child_items.push({ name: defaultOpt.name, item_type: 'modifier', modifier_group: 'size', quantity: 1, unit_price: defaultOpt.price_adjustment });
-              }
-            }
           }
 
           // temperature
           const tempSel = this.findTemperatureOption(chain, rec.temperature);
           if (tempSel) {
             selections[tempSel.groupId] = tempSel.optionId;
-            price += tempSel.price;
-            child_items.push({ name: tempSel.optionName, item_type: 'modifier', modifier_group: tempSel.groupId, quantity: 1, unit_price: tempSel.price });
           }
 
           // other modifiers
@@ -456,35 +466,49 @@ export class PosScreenComponent implements OnInit {
               const arr = Array.isArray(existing) ? existing : (existing ? [existing as string] : []);
               if (!arr.includes(found.optionId)) {
                 selections[found.groupId] = [...arr, found.optionId];
-                price += found.price;
-                child_items.push({ name: found.optionName, item_type: 'modifier', modifier_group: found.groupId, quantity: 1, unit_price: found.price });
               }
             } else {
               if (existing !== found.optionId) {
                 selections[found.groupId] = found.optionId;
-                price += found.price;
-                child_items.push({ name: found.optionName, item_type: 'modifier', modifier_group: found.groupId, quantity: 1, unit_price: found.price });
               }
             }
           }
+
+          // --- START: MODIFIED GENERIC DEFAULT MODIFIER LOGIC ---
+          // Apply defaults for any groups not explicitly set by the item
+          for (const group of chain.groups) {
+            const groupAlreadySet = selections.hasOwnProperty(group.id);
+
+            // Skip if already set or no default exists
+            if (groupAlreadySet || group.default == null) {
+              continue;
+            }
+            
+            // Case 1: Default is from an 'options' list (e.g., size, ice, temp)
+            if (group.options && Array.isArray(group.options)) {
+              const defaultOpt = group.options.find(o => o.id === group.default);
+
+              if (defaultOpt) {
+                // Add to selections map
+                selections[group.id] = defaultOpt.id;
+              }
+            } 
+            // Case 2: Default is from a 'range' (e.g., sweetness pumps)
+            else if (group.type === 'range') {
+              const defaultValue = group.default; // e.g., 5
+              // Add to selections map (storing the value)
+              selections[group.id] = defaultValue.toString();
+            }
+            // Case 3: Other types (like 'info') can be ignored as they won't have defaults to apply
+          }
+          // --- END: MODIFIED GENERIC DEFAULT MODIFIER LOGIC ---
+
         }
 
         const quantity = Math.max(1, rec.quantity || 1);
-        const orderItem: OrderItem = {
-          id: `item-${Date.now()}-${Math.random()}`,
-          product_id: product.chainproductid.toString(),
-          name: product.name,
-          category: this.getCategoryNameForProduct(product),
-          size: sizeName,
-          quantity,
-          unit_price: price, // unit price (single item)
-          child_items
-        };
-
-        // push or merge and animate
-        this.addOrMergeItem(orderItem);
-        await new Promise(res => setTimeout(res, 0));
-        // small delay between items
+        // Open the modal with defaults and auto-submit to populate back into the cart
+        await this.openModifierModalForProduct(product, selections, quantity, true);
+        // small delay between items for visual pacing
         await new Promise(res => setTimeout(res, delayMs));
       } catch (e) {
         console.error('Failed to add recognized item', rec, e);
