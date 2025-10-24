@@ -1,12 +1,16 @@
-import { Component, OnInit, signal, Signal, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, Signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common'; // Replaces NgFor/NgIf
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { TranscriptionService } from '../../services/transcription.service';
 import { MenuService } from '../../services/menu.service';
 import { Product, ModifierChain, OrderItem, Category } from '../../models/menu.model';
 import { ModifierSelectorComponent } from '../modifier-selector/modifier-selector.component';
 import { TranscriptionComponent } from '../transcription/transcription.component';
 import { FilterProductsPipe } from './filter-products.pipe';
+import { RecommendationService } from '../../services/recommendation.service';
 
 @Component({
   selector: 'app-pos-screen',
@@ -15,9 +19,11 @@ import { FilterProductsPipe } from './filter-products.pipe';
   standalone: true,
   imports: [CommonModule, FormsModule, ModifierSelectorComponent, TranscriptionComponent, FilterProductsPipe]
 })
-export class PosScreenComponent implements OnInit {
+export class PosScreenComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  
   products: Signal<Product[]>;
-  // --- STATE FOR SEARCH ---
+  recommendations: Signal<{ product: Product; reason: string }[]>;
   searchTerm = signal<string>('');
 
   
@@ -75,25 +81,93 @@ export class PosScreenComponent implements OnInit {
     return this.orderSubtotal() + this.orderTax();
   });
 
-  constructor(private menuService: MenuService, private http: HttpClient) {
+constructor(
+  private menuService: MenuService, 
+  private http: HttpClient,
+  private transcriptionService: TranscriptionService,
+  private recommendationService: RecommendationService
+) {
   this.categories = this.menuService.categories;
   this.imagePath = this.menuService.imagePath;
   this.products = this.menuService.products;
+  this.recommendations = this.recommendationService.createRecommendationSignal(
+      this.currentOrder,
+      this.products
+    );
   }
 
   ngOnInit(): void {
-    const firstCategory = computed(() => this.categories()[0]);
-    if (firstCategory()) {
-      this.selectCategory(firstCategory());
-    }
-    
-    // Initialize time
-    const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    this.currentMinutes.set(minutes);
-    this.displayTime.set(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+  const firstCategory = computed(() => this.categories()[0]);
+  if (firstCategory()) {
+    this.selectCategory(firstCategory());
   }
   
+  // Initialize time
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  this.currentMinutes.set(minutes);
+  this.displayTime.set(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+  
+  this.transcriptionService.transcriptionStopped$.pipe(
+  takeUntil(this.destroy$)
+).subscribe(() => {
+  console.log('🎤 Transcription stopped - fetching result in 2 seconds...');
+  setTimeout(() => {
+    this.fetchTranscriptionResult();
+  }, 5000);
+});
+}
+// ✅ ADD THIS ENTIRE METHOD
+private fetchTranscriptionResult(): void {
+  console.log('📡 Fetching transcription result...');
+  
+  this.http.get<any>('http://localhost:8000/api/get-transcription-result').subscribe({
+    next: (raw) => {
+      console.log('✅ Full Response received:', raw);
+      
+      if (raw?.status === 'NO_DATA' || raw?.status === 'PROCESSING') {
+        console.log('⏳ No data available yet');
+        return;
+      }
+      
+      if (raw?.status === 'ERROR') {
+        console.error('❌ Transcription error:', raw?.detail);
+        return;
+      }
+      
+      const orderData = raw?.data?.order;
+      
+      if (!orderData || !orderData.items) {
+        console.error('No order items found in response');
+        return;
+      }
+      
+      const items = orderData.items;
+      const mapped = items.map((it: any) => ({
+        product_hint: it?.name ?? '',
+        size: it?.size ?? undefined,
+        temperature: it?.temperature ?? undefined,
+        quantity: Math.max(1, it?.quantity ?? 1),
+        modifiers: Array.isArray(it?.child_items) 
+          ? it.child_items.map((m: any) => m?.name).filter(Boolean) 
+          : []
+      }));
+
+      const payload = {
+        items: mapped,
+        notes: orderData?.notes || undefined,
+        customer_name: orderData?.customer_name || undefined
+      };
+
+      console.log('Final payload:', payload);
+      this.addFromRecognized(payload, 600);
+      console.log('✅ Order processing complete');
+    },
+    error: (err) => {
+      console.error('❌ HTTP Error:', err);
+    }
+  });
+}
   // --- TIME SLIDER METHODS ---
   onTimeSliderChange(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -116,6 +190,11 @@ export class PosScreenComponent implements OnInit {
       this.setTime(time);
     }, 500); // Wait 500ms after user stops sliding
   }
+  // ✅ ADD THIS METHOD
+ngOnDestroy(): void {
+  this.destroy$.next();
+  this.destroy$.complete();
+}
 
   setTime(time: string): void {
     fetch('http://localhost:8000/api/time/set', {
@@ -529,35 +608,75 @@ export class PosScreenComponent implements OnInit {
   }
 
   // Load a recognized payload from an assets JSON file and ingest it
-  loadRecognizedFromFile(path: string = 'assets/mock/recognized-order.json'): void {
-    this.http.get<any>(path).subscribe({
-      next: (raw) => {
-        const items = Array.isArray(raw?.items) ? raw.items : [];
-        const mapped = items.map((it: any) => ({
-          product_hint: it?.name ?? '',
-          size: it?.size ?? undefined,
-          temperature: it?.temperature ?? undefined,
-          quantity: Math.max(1, it?.quantity ?? 1),
-          modifiers: Array.isArray(it?.modifiers) ? it.modifiers.map((m: any) => m?.name).filter(Boolean) : []
-        }));
-
-        const payload = {
-          items: mapped,
-          notes: raw?.notes || undefined,
-          customer_name: raw?.customer_name || undefined
-        } as {
-          items: Array<{ product_hint: string; quantity?: number; size?: string; temperature?: string; modifiers?: string[] }>,
-          notes?: string,
-          customer_name?: string
-        };
-
-        // Ingest with animation
-        this.addFromRecognized(payload, 600);
-      },
-      error: (err) => {
-        console.error('Failed to load recognized order JSON', err);
-        alert('Could not load mock JSON. Check assets path and console for details.');
+ loadRecognizedFromFile(path: string = 'http://localhost:8000/api/get-transcription-result'): void {
+  console.log('🚀 Starting fetch from:', path);
+  
+  this.http.get<any>(path).subscribe({
+    next: (raw) => {
+      console.log('✅ Full Response received:', raw);
+      
+      if (raw?.status === 'NO_DATA' || raw?.status === 'PROCESSING') {
+        console.log('⏳ No data available yet');
+        return;
       }
-    });
-  }
+      
+      if (raw?.status === 'ERROR') {
+        console.error('❌ Transcription error:', raw?.detail);
+        console.error(`Error: ${raw.detail}`);
+        return;
+      }
+      
+      console.log('📦 Processing successful response...');
+      
+      const orderData = raw?.data?.order;
+      console.log('Order data:', orderData);
+      
+      if (!orderData || !orderData.items) {
+        console.error('No order items found in response');
+        return;
+      }
+      
+      const items = orderData.items;
+      console.log('Items extracted:', items);
+      
+      const mapped = items.map((it: any) => ({
+        product_hint: it?.name ?? '',
+        size: it?.size ?? undefined,
+        temperature: it?.temperature ?? undefined,
+        quantity: Math.max(1, it?.quantity ?? 1),
+        modifiers: Array.isArray(it?.child_items) 
+          ? it.child_items.map((m: any) => m?.name).filter(Boolean) 
+          : []
+      }));
+
+      console.log('Mapped items:', mapped);
+
+      const payload = {
+        items: mapped,
+        notes: orderData?.notes || undefined,
+        customer_name: orderData?.customer_name || undefined
+      } as {
+        items: Array<{ 
+          product_hint: string; 
+          quantity?: number; 
+          size?: string; 
+          temperature?: string; 
+          modifiers?: string[] 
+        }>,
+        notes?: string,
+        customer_name?: string
+      };
+
+      console.log('Final payload:', payload);
+
+      this.addFromRecognized(payload, 600);
+      console.log('✅ Order added successfully');
+    },
+    error: (err) => {
+      console.error('❌ HTTP Error:', err);
+      console.error('Error status:', err?.status);
+      console.error('Error message:', err?.message);
+    }
+  });
+}
 }

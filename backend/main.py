@@ -10,6 +10,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, time
 import uuid
 from dotenv import load_dotenv
+import json
+import api_pipeline as api
 
 # Import the AWS Transcribe Streaming SDK
 from amazon_transcribe.client import TranscribeStreamingClient
@@ -391,6 +393,20 @@ async def submit_order(order: SubmitOrderRequest):
 
 
 # --- WebSocket Audio Stream ---
+
+async def assemble_transcript(transcript_queue: asyncio.Queue):
+    """
+    Continuously collects final transcript segments and merges them into one text.
+    """
+    full_transcript = ""
+    while True:
+        text_chunk = await transcript_queue.get()
+        if text_chunk is None:
+            break  # End signal
+        full_transcript += " " + text_chunk
+    return full_transcript.strip()
+
+
 async def audio_stream_generator(audio_queue: asyncio.Queue):
     """Pulls audio chunks from the queue and yields them to the AWS stream"""
     while True:
@@ -407,9 +423,10 @@ async def audio_stream_generator(audio_queue: asyncio.Queue):
 class MyTranscriptHandler(TranscriptResultStreamHandler):
     """Handles the transcript events from AWS and sends them to the client"""
 
-    def __init__(self, transcript_result_stream, client_websocket: WebSocket):
+    def __init__(self, transcript_result_stream, client_websocket: WebSocket,transcript_queue: asyncio.Queue):
         super().__init__(transcript_result_stream)
         self.client_websocket = client_websocket
+        self.transcript_queue= transcript_queue
 
     async def handle_transcript_event(self, transcript_event: TranscriptEvent):
         results = transcript_event.transcript.results
@@ -421,6 +438,7 @@ class MyTranscriptHandler(TranscriptResultStreamHandler):
                     transcript_text = alt.transcript
 
                     if not result.is_partial:
+                        await self.transcript_queue.put(transcript_text)
                         await self.client_websocket.send_json(
                             {"status": "FINAL_SEGMENT", "transcript": transcript_text}
                         )
@@ -430,73 +448,122 @@ class MyTranscriptHandler(TranscriptResultStreamHandler):
                         )
 
 
+from fastapi import WebSocket
+from typing import Dict
+import uuid
+
+# Store active WebSocket sessions
+latest_transcription_result=None
 @app.websocket("/ws/transcribe-live")
 async def websocket_transcribe_live(websocket: WebSocket):
     """Handles a live audio stream from the client for transcription"""
     await websocket.accept()
-    print("INFO:     transcription connection open")
+    
+
+    print(f"INFO: transcription connection open")
 
     audio_queue = asyncio.Queue()
+    transcript_queue = asyncio.Queue()
+    transcribe_client = TranscribeStreamingClient(region=AWS_REGION)
 
-    try:
-        transcribe_client = TranscribeStreamingClient(region=AWS_REGION)
+    stream = await transcribe_client.start_stream_transcription(
+        language_code="en-US",
+        media_sample_rate_hz=16000,
+        media_encoding="pcm",
+    )
 
-        stream = await transcribe_client.start_stream_transcription(
-            language_code="en-US",
-            media_sample_rate_hz=16000,
-            media_encoding="pcm",
-        )
+    handler = MyTranscriptHandler(stream.output_stream, websocket, transcript_queue)
 
-        handler = MyTranscriptHandler(stream.output_stream, websocket)
+    async def read_from_client():
+        while True:
+            try:
+                data = await websocket.receive_bytes()
+                await audio_queue.put(data)
+            except WebSocketDisconnect:
+                print(f"Session  Client disconnected.")
+                await audio_queue.put(None)
+                break
+            except Exception as e:
+                print(f"Session    Error reading from client: {e}")
+                await audio_queue.put(None)
+                break
 
-        async def read_from_client():
-            while True:
-                try:
-                    data = await websocket.receive_bytes()
-                    await audio_queue.put(data)
-                except WebSocketDisconnect:
-                    print("Client disconnected.")
-                    await audio_queue.put(None)
-                    break
-                except Exception as e:
-                    print(f"Error reading from client: {e}")
-                    await audio_queue.put(None)
-                    break
-
-        async def write_to_aws(aws_stream, audio_queue: asyncio.Queue):
+    async def write_to_aws(aws_stream, audio_queue: asyncio.Queue):
+            """
+            Task 2: Takes audio from the queue and sends it to AWS.
+            """
+            # Use the generator you already wrote!
             stream_generator = audio_stream_generator(audio_queue)
             try:
                 async for chunk in stream_generator:
+                    # Send the audio chunk to AWS
                     await aws_stream.input_stream.send_audio_event(audio_chunk=chunk)
             except Exception as e:
                 print(f"Error writing to AWS stream: {e}")
             finally:
+                # Once the generator is done, tell AWS we are done sending audio
                 await aws_stream.input_stream.end_stream()
                 print("AWS audio stream ended.")
-
+    try:    
+        aggregator_task = asyncio.create_task(assemble_transcript(transcript_queue))
+        # Task 3: Reads results from AWS and sends them to Angular
         aws_handler_task = asyncio.create_task(handler.handle_events())
+
         client_reader_task = asyncio.create_task(read_from_client())
         aws_writer_task = asyncio.create_task(write_to_aws(stream, audio_queue))
 
+        # Wait for all three tasks to complete
         await asyncio.gather(client_reader_task, aws_handler_task, aws_writer_task)
-
+        await transcript_queue.put(None)
+        final_text = await aggregator_task
+        pipe=api.APIPipeline()
+        result=pipe.process_text(final_text)
+        global latest_transcription_result
+        latest_transcription_result = {
+            "status": "SUCCESS",
+            "type": "order_recognized",
+            "data": result
+        }
     except WebSocketDisconnect:
         print("WebSocket disconnected.")
     except Exception as e:
         print(f"Live transcription error: {e}")
         try:
+            # Try to send a clean error message to the client
             await websocket.send_json({"status": "ERROR", "detail": str(e)})
         except:
-            pass
+            pass 
     finally:
         try:
             await websocket.close()
         except RuntimeError as e:
             if "already completed" in str(e) or "websocket.close" in str(e):
-                pass
+                pass  # Ignore "already closed" errors
             else:
-                raise e
+                raise e  # Re-raise other runtime errors
         print("Live transcription websocket closed.")
+
+
+@app.post("/api/get-transcription-result")
+async def store_transcription_result(result: dict):
+    """Endpoint for internal use to store the transcription result"""
+    
+    global latest_transcription_result
+    print(latest_transcription_result,"posting")
+    latest_transcription_result = result
+    return {"message": "Result stored"}
+
+@app.get("/api/get-transcription-result")
+async def get_transcription_result():
+    """Frontend calls this to get the latest transcription result"""
+    
+    global latest_transcription_result
+    
+    if latest_transcription_result is None:
+        return {"status": "NO_DATA", "message": "No transcription result available"}
+    
+    return latest_transcription_result
+
 
 
 # --- Run the Server ---

@@ -23,9 +23,15 @@ export class TranscriptionService {
   private finalTranscriptSubject = new Subject<string>();
   private errorSubject = new Subject<string>();
   
+  // ✅ ADD THIS - Subject to notify when transcription stops
+  private transcriptionStoppedSubject = new Subject<void>();
+  
   public partialTranscript$: Observable<string> = this.partialTranscriptSubject.asObservable();
   public finalTranscript$: Observable<string> = this.finalTranscriptSubject.asObservable();
   public error$: Observable<string> = this.errorSubject.asObservable();
+  
+  // ✅ ADD THIS - Observable that components can subscribe to
+  public transcriptionStopped$: Observable<void> = this.transcriptionStoppedSubject.asObservable();
 
   // Web Audio API state
   private audioContext: AudioContext | null = null;
@@ -154,6 +160,13 @@ export class TranscriptionService {
         this.socket$.complete();
         this.socket$ = null;
       }
+
+      // ✅ ADD THIS - Notify that transcription has stopped
+      console.log('🛑 Transcription stopped - notifying subscribers');
+      this.zone.run(() => {
+        this.transcriptionStoppedSubject.next();
+      });
+
     } catch (err) {
       console.error('Error stopping transcription:', err);
     }

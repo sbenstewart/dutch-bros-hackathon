@@ -1,13 +1,32 @@
-/* Time Slider Styles - Transparent Blue Theme */
+/* Time Slider Styles - Completely Hidden Until Hover */
 .time-control-bar {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.95);
   backdrop-filter: blur(10px);
   padding: 12px 20px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
-  position: sticky;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  position: fixed;
   top: 0;
-  z-index: 100;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+/* Show slider when hovering near the top of the screen */
+.time-control-bar:hover {
+  transform: translateY(0);
+}
+
+/* Add a small invisible trigger area at the top */
+.time-control-bar::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: transparent;
 }
 
 .time-slider-container {
@@ -19,7 +38,7 @@
 }
 
 .time-label {
-  color: #1E40AF;
+  color: white;
   font-weight: 600;
   font-size: 14px;
   white-space: nowrap;
@@ -29,7 +48,7 @@
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.3);
   outline: none;
   -webkit-appearance: none;
 }
@@ -39,44 +58,42 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #3B82F6;
+  background: white;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s;
 }
 
 .time-slider::-webkit-slider-thumb:hover {
   transform: scale(1.2);
-  background: #2563EB;
 }
 
 .time-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #3B82F6;
+  background: white;
   cursor: pointer;
   border: none;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .time-display {
-  color: #1E40AF;
+  color: white;
   font-weight: 700;
   font-size: 18px;
   font-family: 'Courier New', monospace;
   min-width: 65px;
   text-align: center;
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   padding: 4px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .reset-btn {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #2563EB;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
   padding: 6px 16px;
   border-radius: 6px;
   cursor: pointer;
@@ -87,8 +104,7 @@
 }
 
 .reset-btn:hover {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
 
@@ -292,7 +308,6 @@
 /* --- Order Panel (Cart) --- */
 .order-panel {
   background-color: #ffffff;
-  /* No longer needs flex or box-shadow from side-by-side layout */
 }
 
 .order-header {
@@ -401,23 +416,6 @@
   border-top: 1px solid #e0e0e0;
   background: #fdfdfd;
 }
-
-/* Demo controls */
-.demo-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.5rem;
-}
-.demo-btn {
-  background: transparent;
-  border: 1px dashed #aac3e6;
-  color: #2c6dca;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.demo-btn:hover { background: #eef5ff; }
 
 .footer-content {
   display: grid;
@@ -530,19 +528,6 @@
   cursor: not-allowed;
 }
 
-/* Recently-added highlight animation */
-.order-item.recently-added {
-  animation: flashHighlight 1.2s ease;
-  background: linear-gradient(90deg, rgba(255,247,205,0.45), rgba(255,255,255,0));
-  border-radius: 10px;
-}
-
-@keyframes flashHighlight {
-  0% { box-shadow: 0 0 0 rgba(255, 215, 0, 0.0); }
-  30% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0.2); }
-  100% { box-shadow: 0 0 0 rgba(255, 215, 0, 0.0); }
-}
-
 /* --- Transcription Panel --- */
 .transcription-panel {
   background-color: #ffffff;
@@ -557,7 +542,7 @@
   line-height: 1.6;
 }
 
-/* --- Modifier Modal Styles (Unaffected) --- */
+/* --- Modifier Modal Styles --- */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -587,4 +572,72 @@
   text-decoration: underline;
   color: #005bb5;
   cursor: pointer;
+}
+
+/* Recommendations Section */
+.recommendations-section {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-top: 2px solid #3b82f6;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.recommendations-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.recommendations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.recommendation-card {
+  background: white;
+  border-radius: 12px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border: 2px solid transparent;
+}
+
+.recommendation-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+}
+
+.recommendation-image {
+  width: 100%;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 0.5rem;
+}
+
+.recommendation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.recommendation-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.recommendation-reason {
+  font-size: 0.75rem;
+  color: #3b82f6;
+  font-style: italic;
+}
+
+.recommendation-price {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #16a34a;
 }

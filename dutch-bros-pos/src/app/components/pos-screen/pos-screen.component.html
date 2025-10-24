@@ -1,7 +1,7 @@
 <!-- Time Slider Bar -->
 <div class="time-control-bar">
   <div class="time-slider-container">
-    <label class="time-label">⏰ Simulate Time:</label>
+    <label class="time-label">Simulate Time:</label>
     <input 
       type="range" 
       min="0" 
@@ -34,6 +34,12 @@
       (click)="setActiveTab('transcription')">
       Live Transcription
     </button>
+    <button>
+      Customer Analytics
+    </button>
+  <button>
+    QR
+  </button>
   </nav>
 
   <!-- Content Panels -->
@@ -47,23 +53,22 @@
           <input type="text"
             placeholder="Search menu items..."
             class="search-bar"
+            #searchInput
             [value]="searchTerm()"
-            (input)="setSearchTerm($event.target.value)" />
+            (input)="setSearchTerm(searchInput.value)" />
         </div>
         
-        <nav class="category-tabs">
-          <nav class="category-tabs" *ngIf="!searchTerm()">
-            <button *ngFor="let category of categories()"
-                    [class.active]="category.id === selectedCategory()?.id"
-                    (click)="selectCategory(category)">
-              {{ category.name }}
-            </button>
-          </nav>
+        <nav class="category-tabs" *ngIf="!searchTerm()">
+          <button *ngFor="let category of categories()"
+                  [class.active]="category.id === selectedCategory()?.id"
+                  (click)="selectCategory(category)">
+            {{ category.name }}
+          </button>
         </nav>
       </header>
 
       <section class="product-grid" *ngIf="selectedCategory() as category">
-  <div *ngFor="let product of (searchTerm() ? products() : (selectedCategory()?.products || [])) | filterProducts:searchTerm()"
+        <div *ngFor="let product of (searchTerm() ? products() : (selectedCategory()?.products || [])) | filterProducts:searchTerm()"
              class="product-card"
              (click)="selectProduct(product)">
           <img [src]="imagePath() + product.imagefilename" 
@@ -83,36 +88,55 @@
         <h2>Current Order ({{ currentOrder().length }})</h2>
       </header>
 
-      <div class="order-summary-scrollable" #orderScroll>
+      <div class="order-summary-scrollable">
         <div *ngIf="currentOrder().length === 0" class="empty-cart">
           Your order is empty.
         </div>
 
-        <div *ngFor="let item of currentOrder()" class="order-item" [class.recently-added]="item.id === lastAddedItemId()">
-          <img 
-            [src]="getCartItemImage(item)" 
-            [alt]="item.name" 
-            class="cart-item-image"
-          />
-          <div class="order-item-details">
-            <span class="item-name hyperlink" (click)="editCartItem(item)">{{ item.name }}</span>
-            <span class="item-modifiers">{{ formatModifiers(item) }}</span>
+        <!-- CART ITEMS LIST -->
+        <div *ngIf="currentOrder().length > 0">
+          <div *ngFor="let item of currentOrder()" class="order-item">
+            <img 
+              [src]="getCartItemImage(item)" 
+              [alt]="item.name" 
+              class="cart-item-image"
+            />
+            <div class="order-item-details">
+              <span class="item-name hyperlink" (click)="editCartItem(item)">{{ item.name }}</span>
+              <span class="item-modifiers">{{ formatModifiers(item) }}</span>
+            </div>
+            <div class="order-item-controls">
+              <button (click)="decrementQuantity(item.id!); $event.stopPropagation();" class="control-btn">-</button>
+              <span class="item-quantity">{{ item.quantity }}</span>
+              <button (click)="incrementQuantity(item.id!); $event.stopPropagation();" class="control-btn">+</button>
+            </div>
+            <span class="item-price">${{ (item.unit_price * item.quantity).toFixed(2) }}</span>
+            <button (click)="removeFromOrder(item.id!); $event.stopPropagation();" class="control-btn remove-btn">&times;</button>
           </div>
-          <div class="order-item-controls">
-            <button (click)="decrementQuantity(item.id!); $event.stopPropagation();" class="control-btn">-</button>
-            <span class="item-quantity">{{ item.quantity }}</span>
-            <button (click)="incrementQuantity(item.id!); $event.stopPropagation();" class="control-btn">+</button>
+        </div>
+
+        <!-- Recommendations Section -->
+        <div class="recommendations-section" *ngIf="recommendations().length > 0 && currentOrder().length >= 2">
+          <h3 class="recommendations-title">💡 You might also like</h3>
+          <div class="recommendations-grid">
+            <div *ngFor="let rec of recommendations()" 
+                 class="recommendation-card"
+                 (click)="selectProduct(rec.product)">
+              <img [src]="imagePath() + rec.product.imagefilename" 
+                   [alt]="rec.product.name"
+                   class="recommendation-image" />
+              <div class="recommendation-info">
+                <span class="recommendation-name">{{ rec.product.name }}</span>
+                <span class="recommendation-reason">{{ rec.reason }}</span>
+                <span class="recommendation-price">${{ rec.product.cost.toFixed(2) }}</span>
+              </div>
+            </div>
           </div>
-          <span class="item-price">${{ (item.unit_price * item.quantity).toFixed(2) }}</span>
-          <button (click)="removeFromOrder(item.id!); $event.stopPropagation();" class="control-btn remove-btn">&times;</button>
         </div>
       </div>
 
+      <!-- Footer with customer info and totals -->
       <footer class="order-summary-footer">
-        <!-- Load recognized order from JSON -->
-        <div class="demo-actions">
-          <button class="demo-btn" (click)="loadRecognizedFromFile()" title="Load from JSON at assets/mock/recognized-order.json">📄 Load JSON mock</button>
-        </div>
         <div class="footer-content">
           <div class="customer-info-section">
             <label for="customerName">Customer Name:</label>
@@ -168,10 +192,7 @@
 
 </div>
 
-<!-- 
-  Modifier Modal (Overlay) 
-  This appears on top of everything when a product is selected.
--->
+<!-- Modifier Modal -->
 <div class="modal-overlay" *ngIf="selectedProduct() && selectedProductModifiers() as modifiers">
   <app-modifier-selector
     class="modal-content"
@@ -180,7 +201,6 @@
     [initialSelections]="cartItemSelections"
     [editingCartItemId]="editingCartItemId"
     [quantityFromCart]="modalQuantity()"
-    [autoSubmit]="autoSubmitModal"
     (orderItemReady)="addToOrder($event)"
     (modifyItem)="modifyExistingItem($event)"
     (cancel)="clearSelection()"
