@@ -310,10 +310,11 @@ async def submit_order(order: SubmitOrderRequest):
             for mod in item.child_items:
                 modifiers[mod['modifier_group']] = mod['name']
             
+            # Build the item - do NOT include 'size' as a top-level field
+            # when using the legacy modifiers format (size goes in modifiers object)
             order_items.append({
                 "name": item.name,
                 "category": item.category,
-                "size": item.size,
                 "quantity": item.quantity,
                 "modifiers": modifiers
             })
