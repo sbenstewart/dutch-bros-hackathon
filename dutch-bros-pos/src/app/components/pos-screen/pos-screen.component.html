@@ -67,12 +67,12 @@
         <h2>Current Order ({{ currentOrder().length }})</h2>
       </header>
 
-      <div class="order-summary-scrollable">
+      <div class="order-summary-scrollable" #orderScroll>
         <div *ngIf="currentOrder().length === 0" class="empty-cart">
           Your order is empty.
         </div>
 
-        <div *ngFor="let item of currentOrder()" class="order-item">
+        <div *ngFor="let item of currentOrder()" class="order-item" [class.recently-added]="item.id === lastAddedItemId()">
           <img 
             [src]="getCartItemImage(item)" 
             [alt]="item.name" 
@@ -93,6 +93,10 @@
       </div>
 
       <footer class="order-summary-footer">
+        <!-- Load recognized order from JSON -->
+        <div class="demo-actions">
+          <button class="demo-btn" (click)="loadRecognizedFromFile()" title="Load from JSON at assets/mock/recognized-order.json">📄 Load JSON mock</button>
+        </div>
         <div class="footer-content">
           <div class="customer-info-section">
             <label for="customerName">Customer Name:</label>

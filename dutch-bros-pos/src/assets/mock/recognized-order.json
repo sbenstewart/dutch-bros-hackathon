@@ -1,0 +1,84 @@
+{
+  "transcription": " Hi friend, how are you doing this morning? I'm doing good. I'm just picking up drinks for my family. My little sister has a soccer game this morning. Oh, that's so fun! That's really sweet of you to pick up drinks for everyone. I hope your sister's team wins. Yeah, thank you. She's pretty stoked. She's playing goalie for the first time today. Wow, that's so awesome. I'm sure she's gonna do great. Well, what can we get going for you? I've got a bit of a list for you today. I'm gonna do a large hot white chocolate mocha. And can I get that extra sweet with soft top? Can I also have a medium double blended, double rainbow rebel with boba and a kid size not so hot with whip? Awesome, that sounds great. Is that gonna be it for you? Actually, I had a question for you. What alternative milks do you guys have? We have oat, almond and coconut milk. Oh, awesome. Can I do a small oat milk, golden eagle and a lemon poppy seed muffin top? Of course. Is that golden eagle gonna be hot, iced or blended? Um, let's go ahead and do ice, please. Sounds good. We'll get those drinks going for you and have them ready at the window. Thank you so much. Of course. Have a wonderful day and have so much fun at that soccer game. Thank you. I will.",
+  "confidence": 0.8785001424095537,
+  "items": [
+    {
+      "id": "a7341c5e-96bc-4cd9-9b15-8e2666e68dc3",
+      "name": "White Mocha",
+      "size": "large",
+      "temperature": "hot",
+      "quantity": 1,
+      "price": 7.5,
+      "modifiers": [
+        {
+          "name": "Extra Sweet",
+          "price": 0.5
+        },
+        {
+          "name": "Soft Top",
+          "price": 0.5
+        }
+      ]
+    },
+    {
+      "id": "2203b704-d71c-41ce-a4bb-de3afa8ff402",
+      "name": "Double Rainbro\u2122 Rebel",
+      "size": "medium",
+      "temperature": "blended",
+      "quantity": 1,
+      "price": 6.75,
+      "modifiers": [
+        {
+          "name": "Boba",
+          "price": 0.75
+        }
+      ]
+    },
+    {
+      "id": "1d4ec560-43cf-47c4-ab63-b8eee4a0ec3b",
+      "name": "Golden Eagle\u00ae",
+      "size": "small",
+      "temperature": "iced",
+      "quantity": 1,
+      "price": 6.25,
+      "modifiers": [
+        {
+          "name": "Oat Milk",
+          "price": 0.75
+        }
+      ]
+    },
+    {
+      "id": "9dd45918-898f-44c9-8564-f88799c1073e",
+      "name": "Lemon Poppyseed Muffin Top",
+      "size": null,
+      "temperature": null,
+      "quantity": 1,
+      "price": 5.5,
+      "modifiers": []
+    },
+    {
+      "id": "14a1189c-62ab-4f7b-9238-ebde93cbe7cb",
+      "name": "Double Rainbro\u2122 Rebel",
+      "size": null,
+      "temperature": null,
+      "quantity": 1,
+      "price": 5.5,
+      "modifiers": []
+    }
+  ],
+  "subtotal": 31.5,
+  "total": 31.5,
+  "flags": [
+    {
+      "item": "not so hot",
+      "reason": "not_in_menu",
+      "suggestions": [
+        "hot cocoa",
+        "build your own: hot cocoa",
+        "zero sugar added hot cocoa"
+      ],
+      "action": "manual_selection"
+    }
+  ]
+}
