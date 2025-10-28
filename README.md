@@ -1,93 +1,157 @@
-# spark
+# Dutch Bros POS Simulation & Backend
 
+This repository contains a collection of tools and services used during the Dutch Bros hackathon effort. It includes a FastAPI-based backend that simulates POS integrations and realtime notifications, demo data, and an Angular-based POS UI project (`dutch-bros-pos`).
 
+The repo is intentionally modular so teams can run the backend independently from the frontend UI and experiment with features like order submission, time simulation, and websocket notifications.
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Contents
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/dutchbros/hackathon/team-1/spark.git
-git branch -M main
-git push -uf origin main
+/ (repo root)
+|-- backend/                # FastAPI backend and services
+|   |-- main.py             # FastAPI application (entrypoint)
+|   |-- api_pipeline.py     # API client helpers
+|   |-- notification_service.py
+|   |-- requirements.txt
+|   |-- data/               # sample data used by backend
+|
+|-- dutch-bros-pos/        # Angular POS client (development)
+|   |-- package.json
+|   |-- src/
+|
+|-- data/                  # shared data (menus, modifiers)
+|   |-- menu/
+|       |-- menu.json
+|       |-- modifiers.json
+|
+|-- README.md
 ```
 
-## Integrate with your tools
+## High level overview
 
-- [ ] [Set up project integrations](https://gitlab.com/dutchbros/hackathon/team-1/spark/-/settings/integrations)
+- Backend: FastAPI application (`backend/main.py`) that exposes REST endpoints and a WebSocket for realtime notifications. It contains simulation features (simulated time, notification generation) and order submission logic that can proxy to a Dutch Bros API (configurable via environment variables).
+- Frontend: `dutch-bros-pos` is an Angular-based POS UI (development server via `ng serve`).
+- Data: Sample menus and modifiers live in `data/menu` and also in the `dutch-bros-pos/public/assets` folder for frontend demos.
 
-## Collaborate with your team
+## Quick start (macOS / zsh)
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Prerequisites:
 
-## Test and Deploy
+- Python 3.8+ (recommend 3.10+)
+- Node.js (for the Angular app)
+- npm
 
-Use the built-in continuous integration in GitLab.
+1) Start the backend (FastAPI)
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Open a terminal and run:
 
-***
+```bash
+cd /Users/sbenstewart/Downloads/dutch\ bros/spark/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-# Editing this README
+# The backend is started simply with Python
+# (the app's entrypoint is `main.py`)
+python main.py
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+The backend exposes REST endpoints and a websocket at ws://127.0.0.1:8000/ws/notifications by default.
 
-## Suggestions for a good README
+Environment variables (copy `backend/.env.example` to `backend/.env` and edit):
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` — required for AWS integrations (Transcribe, S3) if used.
+- `DUTCH_BROS_API_BASE_URL` — URL to proxy order submissions (defaults to a placeholder if unset)
+- `DUTCH_BROS_API_KEY` — API key used when submitting orders upstream
 
-## Name
-Choose a self-explaining name for your project.
+If you don't intend to call any external APIs, you can run the backend locally without credentials and use the simulation features.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+2) Start the Angular POS app
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Open a second terminal and run:
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+cd /Users/sbenstewart/Downloads/dutch\ bros/spark/dutch-bros-pos
+npm install
+npm start
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+This runs the Angular dev server (`ng serve`) and serves the POS UI (default port is shown in the terminal, typically 4200).
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+3) Explore the data and demo assets
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Menu and modifiers JSON files are available under `data/menu/` and also copied to the frontend `public/assets` path for quick client-side demos.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## Backend API (selected endpoints)
+
+The backend implements several useful endpoints for simulation and integration. These are available once the backend is running (default host: 127.0.0.1, port: 8000):
+
+- POST /api/time/set — Set simulated time
+	- Body: { "time": "HH:MM" }
+	- Triggers generation of time-based notifications (morning rush, lunch, cleaning window, etc.)
+
+- POST /api/time/reset — Reset to real time
+
+- GET /api/time/current — Get current (simulated or real) time
+
+- POST /submit-order — Submit an order (see `main.py` for expected payload). Returns success/failure and an order id when proxied successfully.
+
+- WebSocket: /ws/notifications — Subscribe to realtime notifications. The socket sends existing active notifications on connect and receives JSON messages, including dismiss actions from clients.
+
+Example order payload (simplified):
+
+```json
+{
+	"customer_name": "Alice",
+	"items": [
+		{
+			"product_id": "123",
+			"name": "Caramelizer",
+			"category": "Drink",
+			"size": "Medium",
+			"quantity": 1,
+			"unit_price": 4.25,
+			"child_items": [
+				{"modifier_group": "size", "name": "Medium"},
+				{"modifier_group": "shot", "name": "Double"}
+			]
+		}
+	],
+	"notes": "Extra caramel"
+}
+```
+
+See `backend/main.py` for full request/response details and how the `modifiers` object is assembled before submitting to an upstream API.
+
+## Development notes & architecture
+
+- The backend uses FastAPI and `httpx` for async HTTP calls to external services. Uvicorn is the preferred server for local development (hot-reload supported).
+- `notification_service.py` contains a lightweight notification manager used by the WebSocket endpoint to broadcast messages to connected clients.
+- `api_pipeline.py` encapsulates request payload construction and any translation required for the Dutch Bros API.
+
+## Troubleshooting
+
+- Port conflicts: If port 8000 or Angular's 4200 is in use, the dev servers will report the alternative port. Stop the conflicting service or specify a different port.
+- Missing environment variables: The backend prints warnings for missing AWS or API credentials. If you don't need integrations, those warnings are non-fatal for many local workflows.
+- Order submission errors: When submitting orders the backend proxies to `DUTCH_BROS_API_BASE_URL`. Ensure that env var is set and accessible from the machine, and that `DUTCH_BROS_API_KEY` is configured if required.
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Contributions are welcome. Please open issues for bugs and feature requests. If you submit a PR, include a brief description of your changes and any setup steps required to validate them.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Suggested small improvements:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+- Add a docker-compose setup for the backend and frontend for reproducible local environments.
+- Add OpenAPI examples for the `/submit-order` endpoint.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+This repository does not have a license file. Add a LICENSE if you plan to open-source the code.
+
+---
+
+If you'd like, I can also:
+
+- add simple start scripts (Makefile or npm script) to standardize commands;
+- add a small example curl script for submitting an order and connecting to the WebSocket;
+- generate a minimal `.env.example` with the relevant environment variables.
