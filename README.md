@@ -143,15 +143,3 @@ Suggested small improvements:
 
 - Add a docker-compose setup for the backend and frontend for reproducible local environments.
 - Add OpenAPI examples for the `/submit-order` endpoint.
-
-## License
-
-This repository does not have a license file. Add a LICENSE if you plan to open-source the code.
-
----
-
-If you'd like, I can also:
-
-- add simple start scripts (Makefile or npm script) to standardize commands;
-- add a small example curl script for submitting an order and connecting to the WebSocket;
-- generate a minimal `.env.example` with the relevant environment variables.
